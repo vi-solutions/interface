@@ -44,7 +44,10 @@ export function Header() {
             className="flex items-center gap-2 text-lg font-bold tracking-tight"
           >
             <Logo className="h-8 w-8" />
-            Interface Environmental
+            <div className="flex flex-col">
+              <p>Interface</p>
+              <p>Environmental</p>
+            </div>
           </Link>
           <nav className="hidden sm:flex items-center gap-4 text-sm font-medium">
             <Link

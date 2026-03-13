@@ -5,7 +5,7 @@ export function Logo({ className }: { className?: string }) {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
-      viewBox="0 0 194.5904 191.3715"
+      viewBox="38 -2 119 120"
       className={className}
       aria-hidden="true"
     >

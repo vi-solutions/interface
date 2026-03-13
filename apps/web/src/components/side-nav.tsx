@@ -46,15 +46,16 @@ export function SideNav({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 transition-transform md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-emerald-800 bg-emerald-900 text-white dark:border-gray-800 dark:bg-gray-900 transition-transform md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-4 dark:border-gray-800">
-          <Logo className="h-8 w-8 shrink-0" />
-          <span className="font-bold tracking-tight truncate">
-            Interface Environmental
+        <div className="flex h-16 items-center gap-3 border-b border-emerald-800 px-4 dark:border-gray-800">
+          <Logo className="h-11 w-11 shrink-0" />
+          <span className="font-bold tracking-tight truncate text-white dark:text-gray-100">
+            <p>Interface</p>
+            <p>Environmental</p>
           </span>
         </div>
 
@@ -69,8 +70,8 @@ export function SideNav({
                 onClick={onClose}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                    ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                    : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                 }`}
               >
                 <item.icon className="h-5 w-5" />
@@ -81,14 +82,16 @@ export function SideNav({
         </nav>
 
         {/* User section */}
-        <div className="space-y-1 border-t border-gray-200 p-3 dark:border-gray-800">
+        <div className="space-y-1 border-t border-emerald-800 p-3 dark:border-gray-800">
           <div className="flex items-center gap-3 px-3 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-sm font-medium text-white dark:bg-emerald-900 dark:text-emerald-200">
               {initials}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{user.name}</p>
-              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+              <p className="truncate text-sm font-medium text-white dark:text-gray-100">
+                {user.name}
+              </p>
+              <p className="truncate text-xs text-emerald-200 dark:text-gray-400">
                 {user.email}
               </p>
             </div>
@@ -98,8 +101,8 @@ export function SideNav({
             onClick={onClose}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               pathname === "/profile"
-                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
             }`}
           >
             <UserIcon className="h-5 w-5" />
@@ -110,7 +113,7 @@ export function SideNav({
               logout();
               onClose?.();
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-300 hover:bg-white/10 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
           >
             <ArrowOutIcon className="h-5 w-5" />
             Sign out

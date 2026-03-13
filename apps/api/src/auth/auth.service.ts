@@ -75,7 +75,8 @@ export class AuthService {
       currentPassword,
       user.password_hash,
     );
-    if (!valid) throw new UnauthorizedException("Current password is incorrect");
+    if (!valid)
+      throw new UnauthorizedException("Current password is incorrect");
 
     await this.usersService.updatePassword(userId, newPassword);
   }
