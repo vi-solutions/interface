@@ -1,0 +1,10 @@
+- This is a TypeScript monorepo using npm workspaces.
+- Packages: `packages/shared` (contracts), `apps/web` (Next.js), `apps/api` (NestJS).
+- Build order: shared -> api -> web. Always build shared first.
+- The backend uses raw PostgreSQL queries via `pg` — no ORM.
+- All SQL uses parameterized queries ($1, $2, etc.) to prevent injection.
+- Shared types in `packages/shared/src/types/` are the single source of truth for API contracts.
+- Tailwind CSS 4 is used on the frontend (import-based config, not tailwind.config.js).
+- Database migrations live in `apps/api/src/db/migrations/` as plain SQL files.
+- Run `npm run dev` to start both servers in watch mode.
+- Web runs on port 3000, API on port 3001.

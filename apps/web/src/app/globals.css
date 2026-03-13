@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :where(.dark input, .dark textarea, .dark select) {
+    border-color: var(--color-gray-600);
+    background-color: var(--color-gray-800);
+  }
+}
