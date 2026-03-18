@@ -4,6 +4,8 @@ import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
 import type {
   TimeEntry,
+  TimeEntryWithUser,
+  TimeEntryWithDetails,
   CreateTimeEntryDto,
   UpdateTimeEntryDto,
 } from "@interface/shared";
@@ -12,11 +14,30 @@ import type {
 export class TimeEntriesService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
-  async findByProject(projectId: string): Promise<TimeEntry[]> {
+  async findRecent(limit = 50): Promise<TimeEntryWithDetails[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, project_id AS "projectId", user_id AS "userId", date, hours,
-              description, billable, created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM time_entries WHERE project_id = $1 ORDER BY date DESC`,
+      `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId", t.date, t.hours,
+              t.description, t.billable, t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              json_build_object('id', u.id, 'name', u.name) AS user,
+              json_build_object('id', p.id, 'name', p.name) AS project
+       FROM time_entries t
+       JOIN users u ON u.id = t.user_id
+       JOIN projects p ON p.id = t.project_id
+       ORDER BY t.date DESC, t.created_at DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return rows;
+  }
+
+  async findByProject(projectId: string): Promise<TimeEntryWithUser[]> {
+    const { rows } = await this.pool.query(
+      `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId", t.date, t.hours,
+              t.description, t.billable, t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              json_build_object('id', u.id, 'name', u.name) AS user
+       FROM time_entries t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.project_id = $1 ORDER BY t.date DESC`,
       [projectId],
     );
     return rows;

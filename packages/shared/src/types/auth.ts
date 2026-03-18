@@ -15,7 +15,7 @@ export interface AuthResponse {
     id: string;
     email: string;
     name: string;
-    role: "admin" | "consultant" | "viewer";
+    isAdmin: boolean;
   };
 }
 

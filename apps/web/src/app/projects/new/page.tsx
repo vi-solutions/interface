@@ -13,10 +13,12 @@ import type {
   ProjectPhase,
 } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
+import { useToast } from "@/lib/toast-context";
 
 export default function NewProjectPage() {
   const { authenticated } = useRequireAuth();
   const router = useRouter();
+  const { addToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -56,6 +58,7 @@ export default function NewProjectPage() {
         method: "POST",
         body: JSON.stringify(dto),
       });
+      addToast("Project created successfully");
       router.push("/projects");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");

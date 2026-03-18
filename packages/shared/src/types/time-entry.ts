@@ -20,3 +20,12 @@ export interface CreateTimeEntryDto {
 }
 
 export interface UpdateTimeEntryDto extends Partial<CreateTimeEntryDto> {}
+
+export interface TimeEntryWithUser extends TimeEntry {
+  user: { id: string; name: string };
+}
+
+export interface TimeEntryWithDetails extends TimeEntry {
+  user: { id: string; name: string };
+  project: { id: string; name: string };
+}

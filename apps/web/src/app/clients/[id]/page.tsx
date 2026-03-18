@@ -58,7 +58,15 @@ export default function ClientDetailPage() {
               </Link>
             </div>
 
-            <h1 className="text-2xl font-bold mb-8">{client.name}</h1>
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-2xl font-bold">{client.name}</h1>
+              <Link
+                href={`/clients/${id}/edit`}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Edit
+              </Link>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 mb-8">
               {client.contactName && (

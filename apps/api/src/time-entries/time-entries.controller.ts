@@ -15,6 +15,8 @@ import type {
   ApiResponse,
   ApiListResponse,
   TimeEntry,
+  TimeEntryWithUser,
+  TimeEntryWithDetails,
 } from "@interface/shared";
 
 @Controller("time-entries")
@@ -22,10 +24,14 @@ export class TimeEntriesController {
   constructor(private readonly timeEntriesService: TimeEntriesService) {}
 
   @Get()
-  async findByProject(
-    @Query("projectId") projectId: string,
-  ): Promise<ApiListResponse<TimeEntry>> {
-    const data = await this.timeEntriesService.findByProject(projectId);
+  async find(
+    @Query("projectId") projectId?: string,
+  ): Promise<ApiListResponse<TimeEntryWithUser | TimeEntryWithDetails>> {
+    if (projectId) {
+      const data = await this.timeEntriesService.findByProject(projectId);
+      return { data, total: data.length };
+    }
+    const data = await this.timeEntriesService.findRecent();
     return { data, total: data.length };
   }
 

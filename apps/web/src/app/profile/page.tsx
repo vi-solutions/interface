@@ -6,6 +6,7 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useTheme } from "@/lib/theme-context";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
+import { useToast } from "@/lib/toast-context";
 import type { ApiResponse } from "@interface/shared";
 
 const THEME_OPTIONS = [
@@ -18,12 +19,12 @@ export default function ProfilePage() {
   const ready = useRequireAuth();
   const { user } = useAuth();
   const { preference, setPreference } = useTheme();
+  const { addToast } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState("");
   const [saving, setSaving] = useState(false);
 
   if (!ready || !user) return null;
@@ -31,7 +32,6 @@ export default function ProfilePage() {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPasswordError("");
-    setPasswordSuccess("");
 
     if (newPassword.length < 6) {
       setPasswordError("New password must be at least 6 characters");
@@ -48,7 +48,7 @@ export default function ProfilePage() {
         method: "PUT",
         body: JSON.stringify({ currentPassword, newPassword }),
       });
-      setPasswordSuccess("Password changed successfully");
+      addToast("Password changed successfully");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -80,7 +80,9 @@ export default function ProfilePage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500 dark:text-gray-400">Role</span>
-              <span className="font-medium capitalize">{user.role}</span>
+              <span className="font-medium">
+                {user.isAdmin ? "Admin" : "Member"}
+              </span>
             </div>
           </div>
         </section>
@@ -161,11 +163,6 @@ export default function ProfilePage() {
             {passwordError && (
               <p className="text-sm text-red-600 dark:text-red-400">
                 {passwordError}
-              </p>
-            )}
-            {passwordSuccess && (
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                {passwordSuccess}
               </p>
             )}
 

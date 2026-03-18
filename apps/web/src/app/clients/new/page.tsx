@@ -6,10 +6,12 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { api } from "@/lib/api";
 import type { ApiResponse, Client, CreateClientDto } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
+import { useToast } from "@/lib/toast-context";
 
 export default function NewClientPage() {
   const { authenticated } = useRequireAuth();
   const router = useRouter();
+  const { addToast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -35,6 +37,7 @@ export default function NewClientPage() {
         method: "POST",
         body: JSON.stringify(dto),
       });
+      addToast("Client created successfully");
       router.push("/clients");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create client");

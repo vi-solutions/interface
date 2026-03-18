@@ -13,7 +13,7 @@ const JWT_EXPIRES_IN = "7d";
 export interface JwtPayload {
   sub: string;
   email: string;
-  role: string;
+  isAdmin: boolean;
 }
 
 @Injectable()
@@ -30,14 +30,14 @@ export class AuthService {
     );
     if (!valid) throw new UnauthorizedException("Invalid credentials");
 
-    const token = this.signToken(user.id, user.email, user.role);
+    const token = this.signToken(user.id, user.email, user.is_admin);
     return {
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role as AuthResponse["user"]["role"],
+        isAdmin: user.is_admin,
       },
     };
   }
@@ -51,14 +51,14 @@ export class AuthService {
     if (existing) throw new ConflictException("Email already registered");
 
     const user = await this.usersService.create(email, password, name);
-    const token = this.signToken(user.id, user.email, user.role);
+    const token = this.signToken(user.id, user.email, user.isAdmin);
     return {
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        isAdmin: user.isAdmin,
       },
     };
   }
@@ -89,9 +89,13 @@ export class AuthService {
     }
   }
 
-  private signToken(id: string, email: string, role: string): string {
-    return jwt.sign({ sub: id, email, role } satisfies JwtPayload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    });
+  private signToken(id: string, email: string, isAdmin: boolean): string {
+    return jwt.sign(
+      { sub: id, email, isAdmin } satisfies JwtPayload,
+      JWT_SECRET,
+      {
+        expiresIn: JWT_EXPIRES_IN,
+      },
+    );
   }
 }
