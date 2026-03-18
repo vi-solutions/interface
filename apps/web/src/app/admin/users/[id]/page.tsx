@@ -8,6 +8,7 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, FormField, Input, Button, ErrorAlert } from "@/components/ui";
 import Link from "next/link";
 
 export default function EditUserPage() {
@@ -74,13 +75,9 @@ export default function EditUserPage() {
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold mb-8">Edit User</h1>
+        <PageHeader title="Edit User" />
 
-        {error && (
-          <p className="text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg p-4 mb-4">
-            {error}
-          </p>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         {!user && !error && (
           <p className="text-gray-500 dark:text-gray-400">Loading…</p>
@@ -88,32 +85,13 @@ export default function EditUserPage() {
 
         {user && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium mb-1">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="name"
-                name="name"
-                required
-                defaultValue={user.name}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Name" htmlFor="name" required>
+              <Input id="name" name="name" required defaultValue={user.name} />
+            </FormField>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-1">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                defaultValue={user.email}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Email" htmlFor="email" required>
+              <Input id="email" name="email" type="email" required defaultValue={user.email} />
+            </FormField>
 
             <div className="flex items-center gap-2 pt-1">
               <input
@@ -135,20 +113,16 @@ export default function EditUserPage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-lg bg-emerald-600 px-6 py-2 text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
+              <Button type="submit" disabled={saving}>
                 {saving ? "Saving…" : "Save Changes"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => router.push("/admin/users")}
-                className="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, Card, Input, Button } from "@/components/ui";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useTheme } from "@/lib/theme-context";
 import { useAuth } from "@/lib/auth-context";
@@ -64,10 +65,10 @@ export default function ProfilePage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold mb-8">Profile Settings</h1>
+        <PageHeader title="Profile Settings" />
 
         {/* Account Info */}
-        <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        <Card className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Account</h2>
           <div className="grid gap-3 text-sm">
             <div className="flex justify-between">
@@ -85,10 +86,10 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-        </section>
+        </Card>
 
         {/* Theme */}
-        <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        <Card className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Appearance</h2>
           <div className="grid gap-2">
             {THEME_OPTIONS.map((opt) => (
@@ -117,46 +118,43 @@ export default function ProfilePage() {
               </label>
             ))}
           </div>
-        </section>
+        </Card>
 
         {/* Change Password */}
-        <section className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
+        <Card>
           <h2 className="text-lg font-semibold mb-4">Change Password</h2>
           <form onSubmit={handleChangePassword} className="grid gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">
                 Current Password
               </label>
-              <input
+              <Input
                 type="password"
                 required
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
                 New Password
               </label>
-              <input
+              <Input
                 type="password"
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
                 Confirm New Password
               </label>
-              <input
+              <Input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"
               />
             </div>
 
@@ -166,15 +164,11 @@ export default function ProfilePage() {
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-            >
+            <Button type="submit" disabled={saving} className="w-full">
               {saving ? "Saving…" : "Change Password"}
-            </button>
+            </Button>
           </form>
-        </section>
+        </Card>
       </div>
     </AppShell>
   );

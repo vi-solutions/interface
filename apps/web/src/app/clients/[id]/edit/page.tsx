@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, FormField, Input, Textarea, Button, ErrorAlert } from "@/components/ui";
 import Link from "next/link";
 
 export default function EditClientPage() {
@@ -70,13 +71,9 @@ export default function EditClientPage() {
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold mb-8">Edit Client</h1>
+        <PageHeader title="Edit Client" />
 
-        {error && (
-          <p className="text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg p-4 mb-4">
-            {error}
-          </p>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         {!client && !error && (
           <p className="text-gray-500 dark:text-gray-400">Loading…</p>
@@ -84,109 +81,41 @@ export default function EditClientPage() {
 
         {client && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium mb-1">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="name"
-                name="name"
-                required
-                defaultValue={client.name}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Name" htmlFor="name" required>
+              <Input id="name" name="name" required defaultValue={client.name} />
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="contactName"
-                className="block text-sm font-medium mb-1"
-              >
-                Contact Name
-              </label>
-              <input
-                id="contactName"
-                name="contactName"
-                defaultValue={client.contactName ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Contact Name" htmlFor="contactName">
+              <Input id="contactName" name="contactName" defaultValue={client.contactName ?? ""} />
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="contactEmail"
-                className="block text-sm font-medium mb-1"
-              >
-                Contact Email
-              </label>
-              <input
-                id="contactEmail"
-                name="contactEmail"
-                type="email"
-                defaultValue={client.contactEmail ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Contact Email" htmlFor="contactEmail">
+              <Input id="contactEmail" name="contactEmail" type="email" defaultValue={client.contactEmail ?? ""} />
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="contactPhone"
-                className="block text-sm font-medium mb-1"
-              >
-                Contact Phone
-              </label>
-              <input
-                id="contactPhone"
-                name="contactPhone"
-                type="tel"
-                defaultValue={client.contactPhone ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Contact Phone" htmlFor="contactPhone">
+              <Input id="contactPhone" name="contactPhone" type="tel" defaultValue={client.contactPhone ?? ""} />
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="address"
-                className="block text-sm font-medium mb-1"
-              >
-                Address
-              </label>
-              <input
-                id="address"
-                name="address"
-                defaultValue={client.address ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Address" htmlFor="address">
+              <Input id="address" name="address" defaultValue={client.address ?? ""} />
+            </FormField>
 
-            <div>
-              <label htmlFor="notes" className="block text-sm font-medium mb-1">
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                name="notes"
-                rows={3}
-                defaultValue={client.notes ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Notes" htmlFor="notes">
+              <Textarea id="notes" name="notes" rows={3} defaultValue={client.notes ?? ""} />
+            </FormField>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-lg bg-emerald-600 px-6 py-2 text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
+              <Button type="submit" disabled={saving}>
                 {saving ? "Saving…" : "Save Changes"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => router.push(`/clients/${id}`)}
-                className="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}

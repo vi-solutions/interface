@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import type { ApiResponse, User, CreateUserDto } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, FormField, Input, Button, ErrorAlert } from "@/components/ui";
 import { useToast } from "@/lib/toast-context";
 
 export default function NewUserPage() {
@@ -49,59 +50,25 @@ export default function NewUserPage() {
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto p-8">
-        <h1 className="text-2xl font-bold mb-8">New User</h1>
+        <PageHeader title="New User" />
 
-        {error && (
-          <p className="text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg p-4 mb-4">
-            {error}
-          </p>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1">
-              Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="name"
-              name="name"
-              required
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
+          <FormField label="Name" htmlFor="name" required>
+            <Input id="name" name="name" required />
+          </FormField>
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
+          <FormField label="Email" htmlFor="email" required>
+            <Input id="email" name="email" type="email" required />
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium mb-1"
-            >
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+          <FormField label="Password" htmlFor="password" required>
+            <Input id="password" name="password" type="password" required minLength={8} />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Minimum 8 characters
             </p>
-          </div>
+          </FormField>
 
           <div className="flex items-center gap-2 pt-1">
             <input
@@ -116,20 +83,16 @@ export default function NewUserPage() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-emerald-600 px-6 py-2 text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-            >
+            <Button type="submit" disabled={saving}>
               {saving ? "Creating…" : "Create User"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => router.push("/admin/users")}
-              className="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       </div>

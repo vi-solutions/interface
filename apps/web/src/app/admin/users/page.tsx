@@ -7,6 +7,7 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, Button, Card } from "@/components/ui";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -53,20 +54,13 @@ export default function AdminUsersPage() {
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto p-8">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-bold">Manage Users</h1>
-          <button
-            onClick={() => router.push("/admin/users/new")}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
-          >
+        <PageHeader title="Manage Users" subtitle="Grant or revoke admin privileges for team members.">
+          <Button onClick={() => router.push("/admin/users/new")}>
             + New User
-          </button>
-        </div>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
-          Grant or revoke admin privileges for team members.
-        </p>
+          </Button>
+        </PageHeader>
 
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+        <Card padding={false} className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -128,7 +122,7 @@ export default function AdminUsersPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </Card>
       </div>
     </AppShell>
   );

@@ -16,6 +16,7 @@ import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, FormField, Input, Select, Textarea, Button, ErrorAlert } from "@/components/ui";
 
 export default function EditProjectPage() {
   const { authenticated } = useRequireAuth();
@@ -89,13 +90,9 @@ export default function EditProjectPage() {
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold mb-8">Edit Project</h1>
+        <PageHeader title="Edit Project" />
 
-        {error && (
-          <p className="text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg p-4 mb-4">
-            {error}
-          </p>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         {!project && !error && (
           <p className="text-gray-500 dark:text-gray-400">Loading…</p>
@@ -103,139 +100,57 @@ export default function EditProjectPage() {
 
         {project && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="clientId"
-                className="block text-sm font-medium mb-1"
-              >
-                Client <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="clientId"
-                name="clientId"
-                required
-                defaultValue={project.clientId}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
+            <FormField label="Client" htmlFor="clientId" required>
+              <Select id="clientId" name="clientId" required defaultValue={project.clientId}>
                 <option value="">Select a client…</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium mb-1">
-                Project Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="name"
-                name="name"
-                required
-                defaultValue={project.name}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Project Name" htmlFor="name" required>
+              <Input id="name" name="name" required defaultValue={project.name} />
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium mb-1"
-              >
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                rows={3}
-                defaultValue={project.description ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Description" htmlFor="description">
+              <Textarea id="description" name="description" rows={3} defaultValue={project.description ?? ""} />
+            </FormField>
 
-            <div>
-              <label
-                htmlFor="status"
-                className="block text-sm font-medium mb-1"
-              >
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={project.status}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
+            <FormField label="Status" htmlFor="status">
+              <Select id="status" name="status" defaultValue={project.status}>
                 <option value="draft">Draft</option>
                 <option value="active">Active</option>
                 <option value="on-hold">On Hold</option>
                 <option value="completed">Completed</option>
                 <option value="archived">Archived</option>
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div>
-              <label htmlFor="phase" className="block text-sm font-medium mb-1">
-                Phase
-              </label>
-              <select
-                id="phase"
-                name="phase"
-                defaultValue={project.phase ?? ""}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
+            <FormField label="Phase" htmlFor="phase">
+              <Select id="phase" name="phase" defaultValue={project.phase ?? ""}>
                 <option value="">None</option>
                 <option value="assessment">Assessment</option>
                 <option value="analysis">Analysis</option>
                 <option value="restoration">Restoration</option>
                 <option value="permitting">Permitting</option>
                 <option value="reporting">Reporting</option>
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="startDate"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Start Date
-                </label>
-                <input
-                  id="startDate"
-                  name="startDate"
-                  type="date"
-                  defaultValue={project.startDate ?? ""}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="endDate"
-                  className="block text-sm font-medium mb-1"
-                >
-                  End Date
-                </label>
-                <input
-                  id="endDate"
-                  name="endDate"
-                  type="date"
-                  defaultValue={project.endDate ?? ""}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                />
-              </div>
+              <FormField label="Start Date" htmlFor="startDate">
+                <Input id="startDate" name="startDate" type="date" defaultValue={project.startDate ?? ""} />
+              </FormField>
+              <FormField label="End Date" htmlFor="endDate">
+                <Input id="endDate" name="endDate" type="date" defaultValue={project.endDate ?? ""} />
+              </FormField>
             </div>
 
-            <div>
-              <label
-                htmlFor="budget"
-                className="block text-sm font-medium mb-1"
-              >
-                Budget ($)
-              </label>
-              <input
+            <FormField label="Budget ($)" htmlFor="budget">
+              <Input
                 id="budget"
                 name="budget"
                 type="number"
@@ -246,26 +161,21 @@ export default function EditProjectPage() {
                     ? (project.budgetCents / 100).toFixed(2)
                     : ""
                 }
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 placeholder="0.00"
               />
-            </div>
+            </FormField>
 
             <div className="flex gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-lg bg-emerald-600 px-6 py-2 text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
+              <Button type="submit" disabled={saving}>
                 {saving ? "Saving…" : "Save Changes"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => router.push(`/projects/${id}`)}
-                className="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         )}

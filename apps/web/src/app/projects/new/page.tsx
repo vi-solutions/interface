@@ -13,6 +13,7 @@ import type {
   ProjectPhase,
 } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, FormField, Input, Select, Textarea, Button, ErrorAlert } from "@/components/ui";
 import { useToast } from "@/lib/toast-context";
 
 export default function NewProjectPage() {
@@ -70,143 +71,65 @@ export default function NewProjectPage() {
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto p-8">
-        <h1 className="text-2xl font-bold mb-8">New Project</h1>
+        <PageHeader title="New Project" />
 
-        {error && (
-          <p className="text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg p-4 mb-4">
-            {error}
-          </p>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="clientId"
-              className="block text-sm font-medium mb-1"
-            >
-              Client <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="clientId"
-              name="clientId"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            >
+          <FormField label="Client" htmlFor="clientId" required>
+            <Select id="clientId" name="clientId" required>
               <option value="">Select a client…</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1">
-              Project Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="name"
-              name="name"
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
+          <FormField label="Project Name" htmlFor="name" required>
+            <Input id="name" name="name" required />
+          </FormField>
 
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium mb-1"
-            >
-              Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
+          <FormField label="Description" htmlFor="description">
+            <Textarea id="description" name="description" rows={3} />
+          </FormField>
 
-          <div>
-            <label htmlFor="phase" className="block text-sm font-medium mb-1">
-              Phase
-            </label>
-            <select
-              id="phase"
-              name="phase"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            >
+          <FormField label="Phase" htmlFor="phase">
+            <Select id="phase" name="phase">
               <option value="">None</option>
               <option value="assessment">Assessment</option>
               <option value="analysis">Analysis</option>
               <option value="restoration">Restoration</option>
               <option value="permitting">Permitting</option>
               <option value="reporting">Reporting</option>
-            </select>
-          </div>
+            </Select>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="startDate"
-                className="block text-sm font-medium mb-1"
-              >
-                Start Date
-              </label>
-              <input
-                id="startDate"
-                name="startDate"
-                type="date"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="endDate"
-                className="block text-sm font-medium mb-1"
-              >
-                End Date
-              </label>
-              <input
-                id="endDate"
-                name="endDate"
-                type="date"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
+            <FormField label="Start Date" htmlFor="startDate">
+              <Input id="startDate" name="startDate" type="date" />
+            </FormField>
+            <FormField label="End Date" htmlFor="endDate">
+              <Input id="endDate" name="endDate" type="date" />
+            </FormField>
           </div>
 
-          <div>
-            <label htmlFor="budget" className="block text-sm font-medium mb-1">
-              Budget ($)
-            </label>
-            <input
-              id="budget"
-              name="budget"
-              type="number"
-              step="0.01"
-              min="0"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              placeholder="0.00"
-            />
-          </div>
+          <FormField label="Budget ($)" htmlFor="budget">
+            <Input id="budget" name="budget" type="number" step="0.01" min="0" placeholder="0.00" />
+          </FormField>
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-emerald-600 px-6 py-2 text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-            >
+            <Button type="submit" disabled={saving}>
               {saving ? "Creating…" : "Create Project"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => router.push("/projects")}
-              className="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       </div>
