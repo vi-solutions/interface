@@ -16,7 +16,15 @@ import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, FormField, Input, Select, Textarea, Button, ErrorAlert } from "@/components/ui";
+import {
+  PageHeader,
+  FormField,
+  Input,
+  Select,
+  Textarea,
+  Button,
+  ErrorAlert,
+} from "@/components/ui";
 
 export default function EditProjectPage() {
   const { authenticated } = useRequireAuth();
@@ -101,7 +109,12 @@ export default function EditProjectPage() {
         {project && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <FormField label="Client" htmlFor="clientId" required>
-              <Select id="clientId" name="clientId" required defaultValue={project.clientId}>
+              <Select
+                id="clientId"
+                name="clientId"
+                required
+                defaultValue={project.clientId}
+              >
                 <option value="">Select a client…</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -112,11 +125,21 @@ export default function EditProjectPage() {
             </FormField>
 
             <FormField label="Project Name" htmlFor="name" required>
-              <Input id="name" name="name" required defaultValue={project.name} />
+              <Input
+                id="name"
+                name="name"
+                required
+                defaultValue={project.name}
+              />
             </FormField>
 
             <FormField label="Description" htmlFor="description">
-              <Textarea id="description" name="description" rows={3} defaultValue={project.description ?? ""} />
+              <Textarea
+                id="description"
+                name="description"
+                rows={3}
+                defaultValue={project.description ?? ""}
+              />
             </FormField>
 
             <FormField label="Status" htmlFor="status">
@@ -130,7 +153,11 @@ export default function EditProjectPage() {
             </FormField>
 
             <FormField label="Phase" htmlFor="phase">
-              <Select id="phase" name="phase" defaultValue={project.phase ?? ""}>
+              <Select
+                id="phase"
+                name="phase"
+                defaultValue={project.phase ?? ""}
+              >
                 <option value="">None</option>
                 <option value="assessment">Assessment</option>
                 <option value="analysis">Analysis</option>
@@ -142,10 +169,20 @@ export default function EditProjectPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Start Date" htmlFor="startDate">
-                <Input id="startDate" name="startDate" type="date" defaultValue={project.startDate ?? ""} />
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  defaultValue={project.startDate ?? ""}
+                />
               </FormField>
               <FormField label="End Date" htmlFor="endDate">
-                <Input id="endDate" name="endDate" type="date" defaultValue={project.endDate ?? ""} />
+                <Input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  defaultValue={project.endDate ?? ""}
+                />
               </FormField>
             </div>
 

@@ -6,7 +6,14 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { api } from "@/lib/api";
 import type { ApiResponse, Client, CreateClientDto } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, FormField, Input, Textarea, Button, ErrorAlert } from "@/components/ui";
+import {
+  PageHeader,
+  FormField,
+  Input,
+  Textarea,
+  Button,
+  ErrorAlert,
+} from "@/components/ui";
 import { useToast } from "@/lib/toast-context";
 
 export default function NewClientPage() {

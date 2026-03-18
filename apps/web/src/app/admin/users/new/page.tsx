@@ -7,7 +7,13 @@ import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import type { ApiResponse, User, CreateUserDto } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, FormField, Input, Button, ErrorAlert } from "@/components/ui";
+import {
+  PageHeader,
+  FormField,
+  Input,
+  Button,
+  ErrorAlert,
+} from "@/components/ui";
 import { useToast } from "@/lib/toast-context";
 
 export default function NewUserPage() {
@@ -64,7 +70,13 @@ export default function NewUserPage() {
           </FormField>
 
           <FormField label="Password" htmlFor="password" required>
-            <Input id="password" name="password" type="password" required minLength={8} />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={8}
+            />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Minimum 8 characters
             </p>

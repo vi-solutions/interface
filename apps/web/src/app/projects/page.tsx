@@ -6,7 +6,14 @@ import type { ApiListResponse, ProjectWithClient } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, LinkButton, Card, Badge, ErrorAlert, EmptyState } from "@/components/ui";
+import {
+  PageHeader,
+  LinkButton,
+  Card,
+  Badge,
+  ErrorAlert,
+  EmptyState,
+} from "@/components/ui";
 
 export default function ProjectsPage() {
   const { authenticated } = useRequireAuth();

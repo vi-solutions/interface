@@ -4,14 +4,12 @@ import Link from "next/link";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary:
-    "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50",
+  primary: "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50",
   secondary:
     "border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800",
   ghost:
     "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300",
-  danger:
-    "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50",
+  danger: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50",
 };
 
 const base =
@@ -44,10 +42,7 @@ export function LinkButton({
   children,
 }: LinkButtonProps) {
   return (
-    <Link
-      href={href}
-      className={`${base} ${variants[variant]} ${className}`}
-    >
+    <Link href={href} className={`${base} ${variants[variant]} ${className}`}>
       {children}
     </Link>
   );

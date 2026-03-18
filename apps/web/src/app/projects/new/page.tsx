@@ -13,7 +13,15 @@ import type {
   ProjectPhase,
 } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, FormField, Input, Select, Textarea, Button, ErrorAlert } from "@/components/ui";
+import {
+  PageHeader,
+  FormField,
+  Input,
+  Select,
+  Textarea,
+  Button,
+  ErrorAlert,
+} from "@/components/ui";
 import { useToast } from "@/lib/toast-context";
 
 export default function NewProjectPage() {
@@ -116,7 +124,14 @@ export default function NewProjectPage() {
           </div>
 
           <FormField label="Budget ($)" htmlFor="budget">
-            <Input id="budget" name="budget" type="number" step="0.01" min="0" placeholder="0.00" />
+            <Input
+              id="budget"
+              name="budget"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
           </FormField>
 
           <div className="flex gap-3 pt-2">

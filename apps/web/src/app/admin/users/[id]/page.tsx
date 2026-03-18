@@ -8,7 +8,13 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, FormField, Input, Button, ErrorAlert } from "@/components/ui";
+import {
+  PageHeader,
+  FormField,
+  Input,
+  Button,
+  ErrorAlert,
+} from "@/components/ui";
 import Link from "next/link";
 
 export default function EditUserPage() {
@@ -90,7 +96,13 @@ export default function EditUserPage() {
             </FormField>
 
             <FormField label="Email" htmlFor="email" required>
-              <Input id="email" name="email" type="email" required defaultValue={user.email} />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                defaultValue={user.email}
+              />
             </FormField>
 
             <div className="flex items-center gap-2 pt-1">

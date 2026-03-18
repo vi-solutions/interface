@@ -54,7 +54,10 @@ export default function AdminUsersPage() {
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto p-8">
-        <PageHeader title="Manage Users" subtitle="Grant or revoke admin privileges for team members.">
+        <PageHeader
+          title="Manage Users"
+          subtitle="Grant or revoke admin privileges for team members."
+        >
           <Button onClick={() => router.push("/admin/users/new")}>
             + New User
           </Button>

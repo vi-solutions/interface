@@ -7,7 +7,14 @@ import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, FormField, Input, Textarea, Button, ErrorAlert } from "@/components/ui";
+import {
+  PageHeader,
+  FormField,
+  Input,
+  Textarea,
+  Button,
+  ErrorAlert,
+} from "@/components/ui";
 import Link from "next/link";
 
 export default function EditClientPage() {
@@ -82,27 +89,55 @@ export default function EditClientPage() {
         {client && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <FormField label="Name" htmlFor="name" required>
-              <Input id="name" name="name" required defaultValue={client.name} />
+              <Input
+                id="name"
+                name="name"
+                required
+                defaultValue={client.name}
+              />
             </FormField>
 
             <FormField label="Contact Name" htmlFor="contactName">
-              <Input id="contactName" name="contactName" defaultValue={client.contactName ?? ""} />
+              <Input
+                id="contactName"
+                name="contactName"
+                defaultValue={client.contactName ?? ""}
+              />
             </FormField>
 
             <FormField label="Contact Email" htmlFor="contactEmail">
-              <Input id="contactEmail" name="contactEmail" type="email" defaultValue={client.contactEmail ?? ""} />
+              <Input
+                id="contactEmail"
+                name="contactEmail"
+                type="email"
+                defaultValue={client.contactEmail ?? ""}
+              />
             </FormField>
 
             <FormField label="Contact Phone" htmlFor="contactPhone">
-              <Input id="contactPhone" name="contactPhone" type="tel" defaultValue={client.contactPhone ?? ""} />
+              <Input
+                id="contactPhone"
+                name="contactPhone"
+                type="tel"
+                defaultValue={client.contactPhone ?? ""}
+              />
             </FormField>
 
             <FormField label="Address" htmlFor="address">
-              <Input id="address" name="address" defaultValue={client.address ?? ""} />
+              <Input
+                id="address"
+                name="address"
+                defaultValue={client.address ?? ""}
+              />
             </FormField>
 
             <FormField label="Notes" htmlFor="notes">
-              <Textarea id="notes" name="notes" rows={3} defaultValue={client.notes ?? ""} />
+              <Textarea
+                id="notes"
+                name="notes"
+                rows={3}
+                defaultValue={client.notes ?? ""}
+              />
             </FormField>
 
             <div className="flex gap-3 pt-2">

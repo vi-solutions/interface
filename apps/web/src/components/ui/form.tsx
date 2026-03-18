@@ -1,4 +1,10 @@
-import { type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type ReactNode, forwardRef } from "react";
+import {
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+  type ReactNode,
+  forwardRef,
+} from "react";
 
 const inputBase =
   "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors";
@@ -37,7 +43,12 @@ interface FormFieldProps {
   children: ReactNode;
 }
 
-export function FormField({ label, htmlFor, required, children }: FormFieldProps) {
+export function FormField({
+  label,
+  htmlFor,
+  required,
+  children,
+}: FormFieldProps) {
   return (
     <div>
       <label htmlFor={htmlFor} className="block text-sm font-medium mb-1">

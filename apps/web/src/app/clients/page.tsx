@@ -6,7 +6,13 @@ import type { ApiListResponse, Client } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, LinkButton, Card, ErrorAlert, EmptyState } from "@/components/ui";
+import {
+  PageHeader,
+  LinkButton,
+  Card,
+  ErrorAlert,
+  EmptyState,
+} from "@/components/ui";
 
 export default function ClientsPage() {
   const { authenticated } = useRequireAuth();
