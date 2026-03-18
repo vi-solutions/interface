@@ -9,6 +9,8 @@ import type {
   ProjectWithClient,
   TimeEntryWithUser,
   CreateTimeEntryDto,
+  DocumentWithDetails,
+  CreateDocumentDto,
   User,
 } from "@interface/shared";
 import { api } from "@/lib/api";
@@ -28,10 +30,19 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
+  const [showDocForm, setShowDocForm] = useState(false);
+  const [savingDoc, setSavingDoc] = useState(false);
 
   const loadEntries = useCallback(() => {
     api<ApiListResponse<TimeEntryWithUser>>(`/time-entries?projectId=${id}`)
       .then((res) => setEntries(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadDocuments = useCallback(() => {
+    api<ApiListResponse<DocumentWithDetails>>(`/documents?projectId=${id}`)
+      .then((res) => setDocuments(res.data))
       .catch(() => {});
   }, [id]);
 
@@ -43,10 +54,11 @@ export default function ProjectDetailPage() {
         setError(e instanceof Error ? e.message : "Failed to load project"),
       );
     loadEntries();
+    loadDocuments();
     api<ApiListResponse<User>>("/users")
       .then((res) => setUsers(res.data))
       .catch(() => {});
-  }, [authenticated, id, loadEntries]);
+  }, [authenticated, id, loadEntries, loadDocuments]);
 
   if (!authenticated) return null;
 
@@ -110,6 +122,46 @@ export default function ProjectDetailPage() {
       loadEntries();
     } catch {
       addToast("Failed to delete entry", "error");
+    }
+  }
+
+  async function handleDocSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSavingDoc(true);
+
+    const form = new FormData(e.currentTarget);
+    const dto: CreateDocumentDto = {
+      projectId: id,
+      name: form.get("docName") as string,
+      googleDriveUrl: form.get("googleDriveUrl") as string,
+      mimeType: (form.get("mimeType") as string) || undefined,
+    };
+
+    try {
+      await api<ApiResponse<DocumentWithDetails>>("/documents", {
+        method: "POST",
+        body: JSON.stringify(dto),
+      });
+      addToast("Document linked");
+      setShowDocForm(false);
+      loadDocuments();
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to add document",
+        "error",
+      );
+    } finally {
+      setSavingDoc(false);
+    }
+  }
+
+  async function handleDocDelete(docId: string) {
+    try {
+      await api(`/documents/${docId}`, { method: "DELETE" });
+      addToast("Document removed");
+      loadDocuments();
+    } catch {
+      addToast("Failed to remove document", "error");
     }
   }
 
@@ -214,6 +266,146 @@ export default function ProjectDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* ── Documents ────────────────────────────────────── */}
+            <section className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Documents</h2>
+                <button
+                  onClick={() => setShowDocForm((v) => !v)}
+                  className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+                >
+                  {showDocForm ? "Cancel" : "+ Link Document"}
+                </button>
+              </div>
+
+              {showDocForm && (
+                <form
+                  onSubmit={handleDocSubmit}
+                  className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
+                >
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Document Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      name="docName"
+                      required
+                      placeholder="e.g. Site Assessment Report"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Type
+                    </label>
+                    <select
+                      name="mimeType"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="">Auto-detect</option>
+                      <option value="application/pdf">PDF</option>
+                      <option value="application/vnd.google-apps.document">Google Doc</option>
+                      <option value="application/vnd.google-apps.spreadsheet">Google Sheet</option>
+                      <option value="application/vnd.google-apps.presentation">Google Slides</option>
+                      <option value="image/jpeg">Image (JPEG)</option>
+                      <option value="image/png">Image (PNG)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium mb-1">
+                      Google Drive URL <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      name="googleDriveUrl"
+                      type="url"
+                      required
+                      placeholder="https://drive.google.com/file/d/..."
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={savingDoc}
+                      className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                      {savingDoc ? "Linking…" : "Link Document"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {documents.length === 0 && !showDocForm ? (
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  No documents linked yet. Click &quot;+ Link Document&quot; to add one.
+                </p>
+              ) : documents.length > 0 ? (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center gap-4 px-4 py-3"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className={`h-8 w-8 shrink-0 ${
+                          doc.mimeType?.includes("spreadsheet")
+                            ? "text-green-500"
+                            : doc.mimeType?.includes("presentation")
+                              ? "text-yellow-500"
+                              : doc.mimeType?.includes("pdf")
+                                ? "text-red-500"
+                                : doc.mimeType?.includes("image")
+                                  ? "text-purple-500"
+                                  : "text-blue-500"
+                        }`}
+                      >
+                        <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13Z" />
+                      </svg>
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={doc.googleDriveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-sm hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
+                        >
+                          {doc.name}
+                          <span className="ml-1.5 text-gray-400 text-xs">↗</span>
+                        </a>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Added by {doc.uploadedByName} ·{" "}
+                          {new Date(doc.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleDocDelete(doc.id)}
+                        className="shrink-0 text-gray-400 hover:text-red-500 transition-colors"
+                        aria-label="Remove document"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="h-4 w-4"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </section>
 
             {/* ── Time Tracking ────────────────────────────────── */}
             <section>

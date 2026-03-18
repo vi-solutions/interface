@@ -6,6 +6,7 @@ import { ClientsModule } from "./clients/clients.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { TimeEntriesModule } from "./time-entries/time-entries.module";
 import { UsersModule } from "./users/users.module";
+import { DocumentsModule } from "./documents/documents.module";
 import { AuthGuard } from "./auth/auth.guard";
 
 @Module({
@@ -16,6 +17,7 @@ import { AuthGuard } from "./auth/auth.guard";
     ProjectsModule,
     TimeEntriesModule,
     UsersModule,
+    DocumentsModule,
   ],
   providers: [{ provide: APP_GUARD, useExisting: AuthGuard }],
 })
