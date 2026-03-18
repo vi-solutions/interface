@@ -71,9 +71,7 @@ export default function EditProjectPage() {
       addToast("Project updated successfully");
       router.push(`/projects/${id}`);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update project",
-      );
+      setError(err instanceof Error ? err.message : "Failed to update project");
     } finally {
       setSaving(false);
     }
@@ -231,7 +229,10 @@ export default function EditProjectPage() {
             </div>
 
             <div>
-              <label htmlFor="budget" className="block text-sm font-medium mb-1">
+              <label
+                htmlFor="budget"
+                className="block text-sm font-medium mb-1"
+              >
                 Budget ($)
               </label>
               <input

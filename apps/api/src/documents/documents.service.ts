@@ -73,7 +73,15 @@ export class DocumentsService {
                  google_drive_url AS "googleDriveUrl",
                  mime_type AS "mimeType", size_bytes AS "sizeBytes",
                  uploaded_by AS "uploadedBy", created_at AS "createdAt"`,
-      [id, dto.projectId, dto.name, dto.googleDriveUrl, fileId, dto.mimeType ?? null, userId],
+      [
+        id,
+        dto.projectId,
+        dto.name,
+        dto.googleDriveUrl,
+        fileId,
+        dto.mimeType ?? null,
+        userId,
+      ],
     );
     return rows[0];
   }
@@ -94,7 +102,13 @@ export class DocumentsService {
                  google_drive_url AS "googleDriveUrl",
                  mime_type AS "mimeType", size_bytes AS "sizeBytes",
                  uploaded_by AS "uploadedBy", created_at AS "createdAt"`,
-      [id, dto.name ?? existing.name, url, fileId, dto.mimeType ?? existing.mimeType],
+      [
+        id,
+        dto.name ?? existing.name,
+        url,
+        fileId,
+        dto.mimeType ?? existing.mimeType,
+      ],
     );
     return rows[0];
   }
@@ -114,10 +128,7 @@ export class DocumentsService {
     // https://drive.google.com/open?id=FILE_ID
     // https://docs.google.com/document/d/FILE_ID/edit
     // https://docs.google.com/spreadsheets/d/FILE_ID/edit
-    const patterns = [
-      /\/d\/([a-zA-Z0-9_-]+)/,
-      /[?&]id=([a-zA-Z0-9_-]+)/,
-    ];
+    const patterns = [/\/d\/([a-zA-Z0-9_-]+)/, /[?&]id=([a-zA-Z0-9_-]+)/];
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match) return match[1];

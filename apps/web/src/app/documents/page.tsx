@@ -218,11 +218,11 @@ export default function DocumentsPage() {
             </h2>
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
               {group.docs.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center gap-4 px-4 py-3"
-                >
-                  <DocTypeIcon mimeType={doc.mimeType} className="h-8 w-8 shrink-0" />
+                <div key={doc.id} className="flex items-center gap-4 px-4 py-3">
+                  <DocTypeIcon
+                    mimeType={doc.mimeType}
+                    className="h-8 w-8 shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <a
                       href={doc.googleDriveUrl}

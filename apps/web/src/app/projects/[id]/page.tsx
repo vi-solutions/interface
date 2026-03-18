@@ -306,9 +306,15 @@ export default function ProjectDetailPage() {
                     >
                       <option value="">Auto-detect</option>
                       <option value="application/pdf">PDF</option>
-                      <option value="application/vnd.google-apps.document">Google Doc</option>
-                      <option value="application/vnd.google-apps.spreadsheet">Google Sheet</option>
-                      <option value="application/vnd.google-apps.presentation">Google Slides</option>
+                      <option value="application/vnd.google-apps.document">
+                        Google Doc
+                      </option>
+                      <option value="application/vnd.google-apps.spreadsheet">
+                        Google Sheet
+                      </option>
+                      <option value="application/vnd.google-apps.presentation">
+                        Google Slides
+                      </option>
                       <option value="image/jpeg">Image (JPEG)</option>
                       <option value="image/png">Image (PNG)</option>
                     </select>
@@ -341,7 +347,8 @@ export default function ProjectDetailPage() {
 
               {documents.length === 0 && !showDocForm ? (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No documents linked yet. Click &quot;+ Link Document&quot; to add one.
+                  No documents linked yet. Click &quot;+ Link Document&quot; to
+                  add one.
                 </p>
               ) : documents.length > 0 ? (
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -376,7 +383,9 @@ export default function ProjectDetailPage() {
                           className="font-medium text-sm hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
                         >
                           {doc.name}
-                          <span className="ml-1.5 text-gray-400 text-xs">↗</span>
+                          <span className="ml-1.5 text-gray-400 text-xs">
+                            ↗
+                          </span>
                         </a>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Added by {doc.uploadedByName} ·{" "}
