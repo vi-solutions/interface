@@ -11,6 +11,7 @@ import type {
   Project,
   CreateProjectDto,
   ProjectPhase,
+  User,
 } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -29,6 +30,7 @@ export default function NewProjectPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -36,6 +38,9 @@ export default function NewProjectPage() {
     if (!authenticated) return;
     api<ApiListResponse<Client>>("/clients")
       .then((res) => setClients(res.data))
+      .catch(() => {});
+    api<ApiListResponse<User>>("/users")
+      .then((res) => setUsers(res.data))
       .catch(() => {});
   }, [authenticated]);
 
@@ -60,6 +65,7 @@ export default function NewProjectPage() {
       budgetCents: budgetStr
         ? Math.round(parseFloat(budgetStr) * 100)
         : undefined,
+      projectManagerId: (form.get("projectManagerId") as string) || undefined,
     };
 
     try {
@@ -132,6 +138,17 @@ export default function NewProjectPage() {
               min="0"
               placeholder="0.00"
             />
+          </FormField>
+
+          <FormField label="Project Manager" htmlFor="projectManagerId">
+            <Select id="projectManagerId" name="projectManagerId">
+              <option value="">None</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </Select>
           </FormField>
 
           <div className="flex gap-3 pt-2">

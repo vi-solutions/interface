@@ -27,5 +27,6 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body.message ?? `API error ${res.status}`);
   }
 
-  return res.json();
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }

@@ -21,6 +21,7 @@ export interface Project {
   startDate: string | null;
   endDate: string | null;
   budgetCents: number | null;
+  projectManagerId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,10 +35,12 @@ export interface CreateProjectDto {
   startDate?: string;
   endDate?: string;
   budgetCents?: number;
+  projectManagerId?: string;
 }
 
 export interface UpdateProjectDto extends Partial<CreateProjectDto> {}
 
 export interface ProjectWithClient extends Project {
   client: { id: string; name: string };
+  projectManager: { id: string; name: string } | null;
 }

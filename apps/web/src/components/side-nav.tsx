@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/clients", label: "Clients", icon: UsersIcon },
   { href: "/documents", label: "Documents", icon: DocumentIcon },
   { href: "/time", label: "Time", icon: ClockIcon },
+  { href: "/expenses", label: "Expenses", icon: CurrencyIcon },
 ];
 
 export function SideNav({
@@ -264,6 +265,23 @@ function DocumentIcon({ className }: { className?: string }) {
       className={className}
     >
       <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13Z" />
+    </svg>
+  );
+}
+
+function CurrencyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm-.75 4.75a.75.75 0 0 0-1.28-.53l-2.5 2.5a.75.75 0 0 0 0 1.06l2.5 2.5a.75.75 0 0 0 1.28-.53V10.5h1a1.25 1.25 0 1 1 0 2.5h-.5a.75.75 0 0 0 0 1.5h.5a2.75 2.75 0 1 0 0-5.5h-1V6.75Z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }

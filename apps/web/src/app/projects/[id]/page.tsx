@@ -11,6 +11,9 @@ import type {
   CreateTimeEntryDto,
   DocumentWithDetails,
   CreateDocumentDto,
+  UserExpenseWithDetails,
+  CreateUserExpenseDto,
+  ProjectExpense,
   User,
 } from "@interface/shared";
 import { api } from "@/lib/api";
@@ -33,6 +36,12 @@ export default function ProjectDetailPage() {
   const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
   const [showDocForm, setShowDocForm] = useState(false);
   const [savingDoc, setSavingDoc] = useState(false);
+  const [userExpenses, setUserExpenses] = useState<UserExpenseWithDetails[]>(
+    [],
+  );
+  const [projectExpenses, setProjectExpenses] = useState<ProjectExpense[]>([]);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
 
   const loadEntries = useCallback(() => {
     api<ApiListResponse<TimeEntryWithUser>>(`/time-entries?projectId=${id}`)
@@ -46,6 +55,20 @@ export default function ProjectDetailPage() {
       .catch(() => {});
   }, [id]);
 
+  const loadUserExpenses = useCallback(() => {
+    api<ApiListResponse<UserExpenseWithDetails>>(
+      `/user-expenses?projectId=${id}`,
+    )
+      .then((res) => setUserExpenses(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadProjectExpenses = useCallback(() => {
+    api<ApiListResponse<ProjectExpense>>(`/project-expenses?projectId=${id}`)
+      .then((res) => setProjectExpenses(res.data))
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     if (!authenticated) return;
     api<ApiResponse<ProjectWithClient>>(`/projects/${id}`)
@@ -55,10 +78,19 @@ export default function ProjectDetailPage() {
       );
     loadEntries();
     loadDocuments();
+    loadUserExpenses();
+    loadProjectExpenses();
     api<ApiListResponse<User>>("/users")
       .then((res) => setUsers(res.data))
       .catch(() => {});
-  }, [authenticated, id, loadEntries, loadDocuments]);
+  }, [
+    authenticated,
+    id,
+    loadEntries,
+    loadDocuments,
+    loadUserExpenses,
+    loadProjectExpenses,
+  ]);
 
   if (!authenticated) return null;
 
@@ -265,6 +297,14 @@ export default function ProjectDetailPage() {
                   </p>
                 </div>
               )}
+              {project.projectManager && (
+                <div>
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Project Manager
+                  </h3>
+                  <p className="mt-1">{project.projectManager.name}</p>
+                </div>
+              )}
             </div>
 
             {/* ── Documents ────────────────────────────────────── */}
@@ -412,6 +452,290 @@ export default function ProjectDetailPage() {
                       </button>
                     </div>
                   ))}
+                </div>
+              ) : null}
+            </section>
+
+            {/* ── User Expenses ─────────────────────────────────── */}
+            <section className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">User Expenses</h2>
+                <button
+                  onClick={() => setShowExpenseForm((v) => !v)}
+                  className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+                >
+                  {showExpenseForm ? "Cancel" : "+ Log Expense"}
+                </button>
+              </div>
+
+              {showExpenseForm && (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSavingExpense(true);
+                    const form = new FormData(e.currentTarget);
+                    const peId = form.get("projectExpenseId") as string;
+                    const pe = projectExpenses.find((p) => p.id === peId);
+                    const valueStr = form.get("amount") as string;
+                    const value = parseFloat(valueStr);
+                    let totalCents: number;
+                    let quantity: number | undefined;
+
+                    if (pe?.type === "dollar") {
+                      totalCents = Math.round(value * 100);
+                    } else {
+                      quantity = value;
+                      totalCents = Math.round(value * (pe?.rateCents ?? 0));
+                    }
+
+                    const dto: CreateUserExpenseDto = {
+                      projectId: id,
+                      userId: currentUser?.isAdmin
+                        ? (form.get("userId") as string)
+                        : (currentUser?.id ?? ""),
+                      projectExpenseId: peId,
+                      date: form.get("date") as string,
+                      quantity,
+                      totalCents,
+                      notes: (form.get("notes") as string) || undefined,
+                    };
+                    try {
+                      await api<ApiResponse<UserExpenseWithDetails>>(
+                        "/user-expenses",
+                        { method: "POST", body: JSON.stringify(dto) },
+                      );
+                      addToast("Expense logged");
+                      setShowExpenseForm(false);
+                      loadUserExpenses();
+                    } catch (err) {
+                      addToast(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to log expense",
+                        "error",
+                      );
+                    } finally {
+                      setSavingExpense(false);
+                    }
+                  }}
+                  className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
+                >
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Expense Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="projectExpenseId"
+                      required
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="">Select…</option>
+                      {projectExpenses.map((pe) => (
+                        <option key={pe.id} value={pe.id}>
+                          {pe.name}{" "}
+                          {pe.type !== "dollar" &&
+                            `($${(pe.rateCents / 100).toFixed(2)}/${pe.type === "per_km" ? "km" : "day"})`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {currentUser?.isAdmin ? (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Employee <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="userId"
+                        required
+                        defaultValue={currentUser?.id ?? ""}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      >
+                        <option value="">Select…</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Employee
+                      </label>
+                      <p className="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 py-2 text-sm">
+                        {currentUser?.name}
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      name="date"
+                      type="date"
+                      required
+                      defaultValue={new Date().toISOString().slice(0, 10)}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Amount ($) / Quantity{" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      name="amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      placeholder="0.00"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium mb-1">
+                      Notes
+                    </label>
+                    <input
+                      name="notes"
+                      placeholder="Optional notes"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={savingExpense}
+                      className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                      {savingExpense ? "Logging…" : "Log Expense"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {userExpenses.length === 0 && !showExpenseForm ? (
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  No expenses logged yet. Click &quot;+ Log Expense&quot; to add
+                  one.
+                </p>
+              ) : userExpenses.length > 0 ? (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Date
+                        </th>
+                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Expense
+                        </th>
+                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Employee
+                        </th>
+                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Qty
+                        </th>
+                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Total
+                        </th>
+                        <th className="px-4 py-2.5">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userExpenses.map((ue) => (
+                        <tr
+                          key={ue.id}
+                          className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                        >
+                          <td className="px-4 py-2.5">
+                            {new Date(ue.date).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-2.5 font-medium">
+                            {ue.expenseName}
+                            {ue.notes && (
+                              <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                                {ue.notes}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                            {ue.user.name}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {ue.expenseType === "dollar"
+                              ? "—"
+                              : ue.quantity != null
+                                ? `${Number(ue.quantity)}${ue.expenseType === "per_km" ? " km" : " days"}`
+                                : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                            ${(ue.totalCents / 100).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api(`/user-expenses/${ue.id}`, {
+                                    method: "DELETE",
+                                  });
+                                  addToast("Expense deleted");
+                                  loadUserExpenses();
+                                } catch {
+                                  addToast("Failed to delete expense", "error");
+                                }
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              aria-label="Delete expense"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="h-4 w-4"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400"
+                        >
+                          Total
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-bold">
+                          $
+                          {(
+                            userExpenses.reduce(
+                              (sum, ue) => sum + ue.totalCents,
+                              0,
+                            ) / 100
+                          ).toFixed(2)}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               ) : null}
             </section>

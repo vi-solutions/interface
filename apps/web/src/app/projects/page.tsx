@@ -56,6 +56,9 @@ export default function ProjectsPage() {
                       <h2 className="font-semibold text-lg">{project.name}</h2>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {project.client.name}
+                        {project.projectManager && (
+                          <span> · PM: {project.projectManager.name}</span>
+                        )}
                       </p>
                     </div>
                     <Badge>{project.status}</Badge>

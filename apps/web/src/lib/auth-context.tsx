@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import type { AuthResponse } from "@interface/shared";
 import { api } from "@/lib/api";
@@ -46,6 +47,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(res.token);
     setUser(res.user);
   };
+
+  // Silent token refresh — every 6 days to stay within the 7-day window
+  const REFRESH_INTERVAL = 6 * 24 * 60 * 60 * 1000;
+  const refreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      if (refreshTimer.current) clearInterval(refreshTimer.current);
+      return;
+    }
+
+    const doRefresh = async () => {
+      try {
+        const res = await api<ApiResponse<AuthResponse>>("/auth/refresh", {
+          method: "POST",
+        });
+        persist(res.data);
+      } catch {
+        // Token invalid / expired — force logout
+        localStorage.removeItem("auth");
+        setToken(null);
+        setUser(null);
+      }
+    };
+
+    refreshTimer.current = setInterval(doRefresh, REFRESH_INTERVAL);
+    return () => {
+      if (refreshTimer.current) clearInterval(refreshTimer.current);
+    };
+  }, [token]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api<ApiResponse<AuthResponse>>("/auth/login", {

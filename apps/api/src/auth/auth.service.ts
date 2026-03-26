@@ -81,6 +81,22 @@ export class AuthService {
     await this.usersService.updatePassword(userId, newPassword);
   }
 
+  async refresh(payload: JwtPayload): Promise<AuthResponse> {
+    const user = await this.usersService.findById(payload.sub);
+    if (!user) throw new UnauthorizedException("User not found");
+
+    const token = this.signToken(user.id, user.email, user.isAdmin);
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin,
+      },
+    };
+  }
+
   verifyToken(token: string): JwtPayload {
     try {
       return jwt.verify(token, JWT_SECRET) as JwtPayload;

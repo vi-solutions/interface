@@ -1,5 +1,5 @@
 import { Controller, Post, Put, Body, Request } from "@nestjs/common";
-import { AuthService } from "./auth.service";
+import { AuthService, JwtPayload } from "./auth.service";
 import { Public } from "./public.decorator";
 import type {
   LoginDto,
@@ -38,5 +38,12 @@ export class AuthController {
       dto.newPassword,
     );
     return { data: { message: "Password changed successfully" } };
+  }
+
+  @Post("refresh")
+  async refresh(
+    @Request() req: { user: JwtPayload },
+  ): Promise<ApiResponse<AuthResponse>> {
+    return { data: await this.authService.refresh(req.user) };
   }
 }
