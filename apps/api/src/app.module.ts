@@ -10,6 +10,12 @@ import { DocumentsModule } from "./documents/documents.module";
 import { ExpensesModule } from "./expenses/expenses.module";
 import { ProjectExpensesModule } from "./project-expenses/project-expenses.module";
 import { UserExpensesModule } from "./user-expenses/user-expenses.module";
+import { MilestonesModule } from "./milestones/milestones.module";
+import { ContactsModule } from "./contacts/contacts.module";
+import { ProjectContactsModule } from "./project-contacts/project-contacts.module";
+import { TimeCategoriesModule } from "./time-categories/time-categories.module";
+import { ProjectTimeCategoriesModule } from "./project-time-categories/project-time-categories.module";
+import { ProjectUserRatesModule } from "./project-user-rates/project-user-rates.module";
 import { AuthGuard } from "./auth/auth.guard";
 
 @Module({
@@ -24,6 +30,12 @@ import { AuthGuard } from "./auth/auth.guard";
     ExpensesModule,
     ProjectExpensesModule,
     UserExpensesModule,
+    MilestonesModule,
+    ContactsModule,
+    ProjectContactsModule,
+    TimeCategoriesModule,
+    ProjectTimeCategoriesModule,
+    ProjectUserRatesModule,
   ],
   providers: [{ provide: APP_GUARD, useExisting: AuthGuard }],
 })

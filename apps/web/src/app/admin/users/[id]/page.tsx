@@ -48,10 +48,14 @@ export default function EditUserPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
+    const rateStr = form.get("rateCents") as string;
+    const costStr = form.get("hourlyCostCents") as string;
     const dto: UpdateUserDto = {
       name: form.get("name") as string,
       email: form.get("email") as string,
       isAdmin: form.get("isAdmin") === "on",
+      rateCents: rateStr ? Math.round(parseFloat(rateStr) * 100) : 0,
+      hourlyCostCents: costStr ? Math.round(parseFloat(costStr) * 100) : 0,
     };
 
     try {
@@ -103,6 +107,36 @@ export default function EditUserPage() {
                 required
                 defaultValue={user.email}
               />
+            </FormField>
+
+            <FormField label="Default Hourly Rate ($)" htmlFor="rateCents">
+              <Input
+                id="rateCents"
+                name="rateCents"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={(Number(user.rateCents) / 100).toFixed(2)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Charge-out rate — used when no project-specific rate is set
+              </p>
+            </FormField>
+
+            <FormField label="Hourly Wage / Cost ($)" htmlFor="hourlyCostCents">
+              <Input
+                id="hourlyCostCents"
+                name="hourlyCostCents"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={(Number(user.hourlyCostCents) / 100).toFixed(2)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Internal cost per hour — used to calculate net profit
+              </p>
             </FormField>
 
             <div className="flex items-center gap-2 pt-1">

@@ -24,6 +24,8 @@ export class UsersService {
   async findAll(): Promise<User[]> {
     const { rows } = await this.pool.query(
       `SELECT id, email, name, is_admin AS "isAdmin",
+              rate_cents AS "rateCents",
+              hourly_cost_cents AS "hourlyCostCents",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM users ORDER BY name`,
     );
@@ -43,6 +45,8 @@ export class UsersService {
   async findById(id: string): Promise<User> {
     const { rows } = await this.pool.query(
       `SELECT id, email, name, is_admin AS "isAdmin",
+              rate_cents AS "rateCents",
+              hourly_cost_cents AS "hourlyCostCents",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM users WHERE id = $1`,
       [id],
@@ -61,15 +65,23 @@ export class UsersService {
     return rows[0] ?? null;
   }
 
-  async create(email: string, password: string, name: string): Promise<User> {
+  async create(
+    email: string,
+    password: string,
+    name: string,
+    rateCents?: number,
+    hourlyCostCents?: number,
+  ): Promise<User> {
     const id = uuid();
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const { rows } = await this.pool.query(
-      `INSERT INTO users (id, email, name, password_hash)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (id, email, name, password_hash, rate_cents, hourly_cost_cents)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, email, name, is_admin AS "isAdmin",
+                 rate_cents AS "rateCents",
+                 hourly_cost_cents AS "hourlyCostCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
-      [id, email, name, passwordHash],
+      [id, email, name, passwordHash, rateCents ?? 0, hourlyCostCents ?? 0],
     );
     return rows[0];
   }
@@ -88,7 +100,13 @@ export class UsersService {
 
   async update(
     id: string,
-    fields: { name?: string; email?: string; isAdmin?: boolean },
+    fields: {
+      name?: string;
+      email?: string;
+      isAdmin?: boolean;
+      rateCents?: number;
+      hourlyCostCents?: number;
+    },
   ): Promise<User> {
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -106,6 +124,14 @@ export class UsersService {
       sets.push(`is_admin = $${idx++}`);
       values.push(fields.isAdmin);
     }
+    if (fields.rateCents !== undefined) {
+      sets.push(`rate_cents = $${idx++}`);
+      values.push(fields.rateCents);
+    }
+    if (fields.hourlyCostCents !== undefined) {
+      sets.push(`hourly_cost_cents = $${idx++}`);
+      values.push(fields.hourlyCostCents);
+    }
 
     if (sets.length === 0) return this.findById(id);
 
@@ -115,6 +141,8 @@ export class UsersService {
     const { rows } = await this.pool.query(
       `UPDATE users SET ${sets.join(", ")} WHERE id = $${idx}
        RETURNING id, email, name, is_admin AS "isAdmin",
+                 rate_cents AS "rateCents",
+                 hourly_cost_cents AS "hourlyCostCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       values,
     );
@@ -126,6 +154,8 @@ export class UsersService {
     const { rows } = await this.pool.query(
       `UPDATE users SET is_admin = $2, updated_at = NOW() WHERE id = $1
        RETURNING id, email, name, is_admin AS "isAdmin",
+                 rate_cents AS "rateCents",
+                 hourly_cost_cents AS "hourlyCostCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [id, isAdmin],
     );

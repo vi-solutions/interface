@@ -14,6 +14,10 @@ import type {
   UserExpenseWithDetails,
   CreateUserExpenseDto,
   ProjectExpense,
+  Milestone,
+  ProjectContactWithDetails,
+  ProjectTimeCategory,
+  ProjectUserRateWithUser,
   User,
 } from "@interface/shared";
 import { api } from "@/lib/api";
@@ -42,6 +46,16 @@ export default function ProjectDetailPage() {
   const [projectExpenses, setProjectExpenses] = useState<ProjectExpense[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [projectContacts, setProjectContacts] = useState<
+    ProjectContactWithDetails[]
+  >([]);
+  const [timeCategories, setTimeCategories] = useState<ProjectTimeCategory[]>(
+    [],
+  );
+  const [projectUserRates, setProjectUserRates] = useState<
+    ProjectUserRateWithUser[]
+  >([]);
 
   const loadEntries = useCallback(() => {
     api<ApiListResponse<TimeEntryWithUser>>(`/time-entries?projectId=${id}`)
@@ -69,6 +83,36 @@ export default function ProjectDetailPage() {
       .catch(() => {});
   }, [id]);
 
+  const loadMilestones = useCallback(() => {
+    api<ApiListResponse<Milestone>>(`/milestones?projectId=${id}`)
+      .then((res) => setMilestones(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadProjectContacts = useCallback(() => {
+    api<ApiListResponse<ProjectContactWithDetails>>(
+      `/project-contacts?projectId=${id}`,
+    )
+      .then((res) => setProjectContacts(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadTimeCategories = useCallback(() => {
+    api<ApiListResponse<ProjectTimeCategory>>(
+      `/project-time-categories?projectId=${id}`,
+    )
+      .then((res) => setTimeCategories(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadProjectUserRates = useCallback(() => {
+    api<ApiListResponse<ProjectUserRateWithUser>>(
+      `/project-user-rates?projectId=${id}`,
+    )
+      .then((res) => setProjectUserRates(res.data))
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     if (!authenticated) return;
     api<ApiResponse<ProjectWithClient>>(`/projects/${id}`)
@@ -80,6 +124,10 @@ export default function ProjectDetailPage() {
     loadDocuments();
     loadUserExpenses();
     loadProjectExpenses();
+    loadMilestones();
+    loadProjectContacts();
+    loadTimeCategories();
+    loadProjectUserRates();
     api<ApiListResponse<User>>("/users")
       .then((res) => setUsers(res.data))
       .catch(() => {});
@@ -90,6 +138,10 @@ export default function ProjectDetailPage() {
     loadDocuments,
     loadUserExpenses,
     loadProjectExpenses,
+    loadMilestones,
+    loadProjectContacts,
+    loadTimeCategories,
+    loadProjectUserRates,
   ]);
 
   if (!authenticated) return null;
@@ -113,6 +165,49 @@ export default function ProjectDetailPage() {
     0,
   );
 
+  // Group entries by milestone for the budget summary
+  const byMilestone = entries.reduce<
+    Record<string, { name: string; hours: number }>
+  >((acc, entry) => {
+    const key = entry.milestone?.id ?? "_none";
+    if (!acc[key]) {
+      acc[key] = { name: entry.milestone?.name ?? "Unassigned", hours: 0 };
+    }
+    acc[key].hours += Number(entry.hours);
+    return acc;
+  }, {});
+
+  // Build a rate lookup: userId -> hourly charge-out rate in cents
+  const rateByUser: Record<string, number> = {};
+  for (const u of users) {
+    rateByUser[u.id] = u.rateCents; // default charge-out rate
+  }
+  for (const pur of projectUserRates) {
+    if (pur.hourlyRateCents != null) {
+      rateByUser[pur.userId] = pur.hourlyRateCents;
+    }
+  }
+
+  // Build a cost lookup: userId -> hourly cost in cents
+  const costByUser: Record<string, number> = {};
+  for (const u of users) {
+    costByUser[u.id] = u.hourlyCostCents;
+  }
+
+  // Revenue = sum of billable hours × charge-out rate
+  const revenueCents = entries.reduce((sum, e) => {
+    if (!e.billable) return sum;
+    return sum + Number(e.hours) * (rateByUser[e.userId] ?? 0);
+  }, 0);
+
+  // Cost = sum of all hours × hourly wage + 15% burden (vacation, EI, CPP, etc.)
+  const BURDEN_RATE = 1.15;
+  const laborCostCents = entries.reduce((sum, e) => {
+    return sum + Number(e.hours) * (costByUser[e.userId] ?? 0) * BURDEN_RATE;
+  }, 0);
+
+  const netProfitCents = revenueCents - laborCostCents;
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -123,6 +218,9 @@ export default function ProjectDetailPage() {
       userId: currentUser?.isAdmin
         ? (form.get("userId") as string)
         : (currentUser?.id ?? ""),
+      milestoneId: (form.get("milestoneId") as string) || undefined,
+      projectTimeCategoryId:
+        (form.get("projectTimeCategoryId") as string) || undefined,
       date: form.get("date") as string,
       hours: parseFloat(form.get("hours") as string),
       description: (form.get("description") as string) || undefined,
@@ -248,9 +346,6 @@ export default function ProjectDetailPage() {
 
             {project.description && (
               <div className="mb-8">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Description
-                </h2>
                 <p>{project.description}</p>
               </div>
             )}
@@ -305,7 +400,188 @@ export default function ProjectDetailPage() {
                   <p className="mt-1">{project.projectManager.name}</p>
                 </div>
               )}
+              {projectContacts.length > 0 && (
+                <div className="sm:col-span-2">
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Contacts
+                  </h3>
+                  <div className="mt-1 space-y-1">
+                    {projectContacts.map((pc) => (
+                      <div
+                        key={pc.id}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <span className="font-medium">{pc.contact.name}</span>
+                        {pc.contact.title && (
+                          <span className="text-gray-500 dark:text-gray-400">
+                            — {pc.contact.title}
+                          </span>
+                        )}
+                        {pc.contact.email && (
+                          <a
+                            href={`mailto:${pc.contact.email}`}
+                            className="text-gray-400 dark:text-gray-500 hover:underline text-xs ml-auto"
+                          >
+                            {pc.contact.email}
+                          </a>
+                        )}
+                        {pc.contact.phone && (
+                          <span className="text-gray-400 dark:text-gray-500 text-xs">
+                            {pc.contact.phone}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* ── Project Metrics ──────────────────────────────── */}
+            {entries.length > 0 && (
+              <div className="mb-10 space-y-6">
+                {/* Financial summary cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Revenue
+                    </p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                      $
+                      {(revenueCents / 100).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {totalBillable.toFixed(1)}h billable
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Labor Cost
+                    </p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                      $
+                      {(laborCostCents / 100).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {totalHours.toFixed(1)}h total
+                    </p>
+                  </div>
+                  <div
+                    className={`rounded-lg border p-4 ${
+                      netProfitCents >= 0
+                        ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20"
+                        : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Net Profit
+                    </p>
+                    <p
+                      className={`mt-1 text-xl font-bold tabular-nums ${
+                        netProfitCents >= 0
+                          ? "text-emerald-700 dark:text-emerald-300"
+                          : "text-red-700 dark:text-red-300"
+                      }`}
+                    >
+                      {netProfitCents < 0 ? "−" : ""}$
+                      {(Math.abs(netProfitCents) / 100).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                      )}
+                    </p>
+                    {revenueCents > 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {((netProfitCents / revenueCents) * 100).toFixed(0)}%
+                        margin
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Milestone time budget bars */}
+                {milestones.length > 0 && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+                      Milestone Time Budgets
+                    </h3>
+                    <div className="space-y-4">
+                      {milestones.map((m) => {
+                        const logged = byMilestone[m.id]?.hours ?? 0;
+                        const budget =
+                          m.budgetHours != null ? Number(m.budgetHours) : null;
+                        const pct =
+                          budget && budget > 0
+                            ? Math.min((logged / budget) * 100, 100)
+                            : null;
+                        const over = budget != null && logged > budget;
+                        const overPct =
+                          budget && budget > 0 && logged > budget
+                            ? Math.min(((logged - budget) / budget) * 100, 50)
+                            : 0;
+                        return (
+                          <div key={m.id}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-sm font-medium truncate mr-3">
+                                {m.name}
+                              </span>
+                              <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {logged.toFixed(1)}h
+                                {budget != null && (
+                                  <span className="text-gray-400 dark:text-gray-500">
+                                    {" / "}
+                                    {budget}h
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            {budget != null && budget > 0 ? (
+                              <div className="relative h-3 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                                <div
+                                  className={`absolute inset-y-0 left-0 rounded-full transition-all ${
+                                    over
+                                      ? "bg-red-500 dark:bg-red-400"
+                                      : pct != null && pct >= 80
+                                        ? "bg-amber-500 dark:bg-amber-400"
+                                        : "bg-emerald-500 dark:bg-emerald-400"
+                                  }`}
+                                  style={{
+                                    width: `${over ? 100 : (pct ?? 0)}%`,
+                                  }}
+                                />
+                                {over && overPct > 0 && (
+                                  <div
+                                    className="absolute inset-y-0 right-0 bg-red-300/40 dark:bg-red-400/20 rounded-r-full"
+                                    style={{ width: `${overPct}%` }}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div className="h-3 rounded-full bg-gray-100 dark:bg-gray-700">
+                                <div
+                                  className="h-full rounded-full bg-gray-300 dark:bg-gray-500"
+                                  style={{ width: "100%" }}
+                                />
+                              </div>
+                            )}
+                            {over && budget != null && (
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                {(logged - budget).toFixed(1)}h over budget
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Documents ────────────────────────────────────── */}
             <section className="mb-10">
@@ -459,7 +735,7 @@ export default function ProjectDetailPage() {
             {/* ── User Expenses ─────────────────────────────────── */}
             <section className="mb-10">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">User Expenses</h2>
+                <h2 className="text-lg font-semibold">Expenses</h2>
                 <button
                   onClick={() => setShowExpenseForm((v) => !v)}
                   className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
@@ -727,7 +1003,7 @@ export default function ProjectDetailPage() {
                           $
                           {(
                             userExpenses.reduce(
-                              (sum, ue) => sum + ue.totalCents,
+                              (sum, ue) => sum + Number(ue.totalCents ?? 0),
                               0,
                             ) / 100
                           ).toFixed(2)}
@@ -782,6 +1058,43 @@ export default function ProjectDetailPage() {
                       </p>
                     )}
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Milestone <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="milestoneId"
+                      required
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="">Select milestone…</option>
+                      {milestones.map((ms) => (
+                        <option key={ms.id} value={ms.id}>
+                          {ms.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {timeCategories.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Category
+                      </label>
+                      <select
+                        name="projectTimeCategoryId"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      >
+                        <option value="">None</option>
+                        {timeCategories.map((tc) => (
+                          <option key={tc.id} value={tc.id}>
+                            {tc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
@@ -894,6 +1207,78 @@ export default function ProjectDetailPage() {
                 </div>
               )}
 
+              {/* ── Summary by Milestone ── */}
+              {milestones.length > 0 && entries.length > 0 && (
+                <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Milestone
+                        </th>
+                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Logged
+                        </th>
+                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Budget
+                        </th>
+                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Remaining
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {milestones.map((m) => {
+                        const logged = byMilestone[m.id]?.hours ?? 0;
+                        const budget =
+                          m.budgetHours != null ? Number(m.budgetHours) : null;
+                        const remaining =
+                          budget != null ? budget - logged : null;
+                        return (
+                          <tr
+                            key={m.id}
+                            className="border-b border-gray-100 dark:border-gray-700/50"
+                          >
+                            <td className="px-4 py-2.5">{m.name}</td>
+                            <td className="px-4 py-2.5 text-right tabular-nums">
+                              {logged.toFixed(2)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums">
+                              {budget != null ? budget.toFixed(2) : "—"}
+                            </td>
+                            <td
+                              className={`px-4 py-2.5 text-right tabular-nums font-medium ${
+                                remaining != null && remaining < 0
+                                  ? "text-red-600 dark:text-red-400"
+                                  : ""
+                              }`}
+                            >
+                              {remaining != null ? remaining.toFixed(2) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {byMilestone["_none"] && (
+                        <tr className="border-b border-gray-100 dark:border-gray-700/50">
+                          <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 italic">
+                            Unassigned
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {byMilestone["_none"].hours.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            —
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            —
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {/* ── Individual Entries ── */}
               {entries.length === 0 ? (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
@@ -906,6 +1291,12 @@ export default function ProjectDetailPage() {
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                           Date
+                        </th>
+                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Milestone
+                        </th>
+                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                          Category
                         </th>
                         <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                           Employee
@@ -932,6 +1323,12 @@ export default function ProjectDetailPage() {
                         >
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             {new Date(entry.date).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                            {entry.milestone?.name || "—"}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                            {entry.timeCategory?.name || "—"}
                           </td>
                           <td className="px-4 py-2.5">{entry.user.name}</td>
                           <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">

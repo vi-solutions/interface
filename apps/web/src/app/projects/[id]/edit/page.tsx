@@ -16,6 +16,15 @@ import type {
   CreateProjectExpenseDto,
   ExpenseType,
   Expense,
+  Milestone,
+  CreateMilestoneDto,
+  Contact,
+  ProjectContactWithDetails,
+  ProjectTimeCategory,
+  CreateProjectTimeCategoryDto,
+  TimeCategory,
+  ProjectUserRateWithUser,
+  CreateProjectUserRateDto,
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -50,10 +59,72 @@ export default function EditProjectPage() {
   const [expenseMode, setExpenseMode] = useState<"existing" | "custom">(
     "existing",
   );
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [savingMilestone, setSavingMilestone] = useState(false);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(
+    null,
+  );
+  const [editingMilestoneName, setEditingMilestoneName] = useState("");
+  const [editingMilestoneBudget, setEditingMilestoneBudget] = useState("");
+  const [projectContacts, setProjectContacts] = useState<
+    ProjectContactWithDetails[]
+  >([]);
+  const [clientContacts, setClientContacts] = useState<Contact[]>([]);
+  const [savingContact, setSavingContact] = useState(false);
+  const [projectTimeCategories, setProjectTimeCategories] = useState<
+    ProjectTimeCategory[]
+  >([]);
+  const [showTimeCatForm, setShowTimeCatForm] = useState(false);
+  const [savingTimeCat, setSavingTimeCat] = useState(false);
+  const [globalTimeCategories, setGlobalTimeCategories] = useState<
+    TimeCategory[]
+  >([]);
+  const [timeCatMode, setTimeCatMode] = useState<"existing" | "custom">(
+    "existing",
+  );
+  const [projectUserRates, setProjectUserRates] = useState<
+    ProjectUserRateWithUser[]
+  >([]);
+  const [showRateForm, setShowRateForm] = useState(false);
+  const [savingRate, setSavingRate] = useState(false);
+  const [editingRateId, setEditingRateId] = useState<string | null>(null);
+  const [editingHourly, setEditingHourly] = useState("");
+  const [editingDaily, setEditingDaily] = useState("");
 
   const loadProjectExpenses = useCallback(() => {
     api<ApiListResponse<ProjectExpense>>(`/project-expenses?projectId=${id}`)
       .then((res) => setProjectExpenses(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadMilestones = useCallback(() => {
+    api<ApiListResponse<Milestone>>(`/milestones?projectId=${id}`)
+      .then((res) => setMilestones(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadProjectContacts = useCallback(() => {
+    api<ApiListResponse<ProjectContactWithDetails>>(
+      `/project-contacts?projectId=${id}`,
+    )
+      .then((res) => setProjectContacts(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadProjectTimeCategories = useCallback(() => {
+    api<ApiListResponse<ProjectTimeCategory>>(
+      `/project-time-categories?projectId=${id}`,
+    )
+      .then((res) => setProjectTimeCategories(res.data))
+      .catch(() => {});
+  }, [id]);
+
+  const loadProjectUserRates = useCallback(() => {
+    api<ApiListResponse<ProjectUserRateWithUser>>(
+      `/project-user-rates?projectId=${id}`,
+    )
+      .then((res) => setProjectUserRates(res.data))
       .catch(() => {});
   }, [id]);
 
@@ -73,8 +144,30 @@ export default function EditProjectPage() {
     api<ApiListResponse<Expense>>("/expenses")
       .then((res) => setGlobalExpenses(res.data))
       .catch(() => {});
+    api<ApiListResponse<TimeCategory>>("/time-categories")
+      .then((res) => setGlobalTimeCategories(res.data))
+      .catch(() => {});
     loadProjectExpenses();
-  }, [authenticated, id, loadProjectExpenses]);
+    loadMilestones();
+    loadProjectContacts();
+    loadProjectTimeCategories();
+    loadProjectUserRates();
+  }, [
+    authenticated,
+    id,
+    loadProjectExpenses,
+    loadMilestones,
+    loadProjectContacts,
+    loadProjectTimeCategories,
+    loadProjectUserRates,
+  ]);
+
+  useEffect(() => {
+    if (!project?.clientId) return;
+    api<ApiListResponse<Contact>>(`/contacts?clientId=${project.clientId}`)
+      .then((res) => setClientContacts(res.data))
+      .catch(() => {});
+  }, [project?.clientId]);
 
   if (!authenticated) return null;
 
@@ -131,11 +224,11 @@ export default function EditProjectPage() {
 
         {error && <ErrorAlert message={error} />}
 
-        {!project && !error && (
+        {(!project || clients.length === 0) && !error && (
           <p className="text-gray-500 dark:text-gray-400">Loading…</p>
         )}
 
-        {project && (
+        {project && clients.length > 0 && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <FormField label="Client" htmlFor="clientId" required>
               <Select
@@ -202,7 +295,7 @@ export default function EditProjectPage() {
                   id="startDate"
                   name="startDate"
                   type="date"
-                  defaultValue={project.startDate ?? ""}
+                  defaultValue={project.startDate?.slice(0, 10) ?? ""}
                 />
               </FormField>
               <FormField label="End Date" htmlFor="endDate">
@@ -210,7 +303,7 @@ export default function EditProjectPage() {
                   id="endDate"
                   name="endDate"
                   type="date"
-                  defaultValue={project.endDate ?? ""}
+                  defaultValue={project.endDate?.slice(0, 10) ?? ""}
                 />
               </FormField>
             </div>
@@ -603,6 +696,967 @@ export default function EditProjectPage() {
                 </table>
               </div>
             ) : null}
+          </section>
+        )}
+
+        {/* ── Milestones ──────────────────────────────────── */}
+        {project && (
+          <section className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Milestones</h2>
+              <button
+                onClick={() => setShowMilestoneForm((v) => !v)}
+                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+              >
+                {showMilestoneForm ? "Cancel" : "+ Add Milestone"}
+              </button>
+            </div>
+
+            {showMilestoneForm && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSavingMilestone(true);
+                  const form = new FormData(e.currentTarget);
+                  const budgetStr = form.get("budgetHours") as string;
+                  const dto: CreateMilestoneDto = {
+                    projectId: id,
+                    name: form.get("name") as string,
+                    budgetHours: budgetStr ? parseFloat(budgetStr) : undefined,
+                  };
+                  try {
+                    await api<ApiResponse<Milestone>>("/milestones", {
+                      method: "POST",
+                      body: JSON.stringify(dto),
+                    });
+                    addToast("Milestone added");
+                    setShowMilestoneForm(false);
+                    loadMilestones();
+                  } catch (err) {
+                    addToast(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to add milestone",
+                      "error",
+                    );
+                  } finally {
+                    setSavingMilestone(false);
+                  }
+                }}
+                className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
+              >
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="name"
+                    required
+                    placeholder="e.g. Phase 1 — Design"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Time Budget (hours)
+                  </label>
+                  <input
+                    name="budgetHours"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    placeholder="e.g. 40"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={savingMilestone}
+                    className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {savingMilestone ? "Adding…" : "Add Milestone"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {milestones.length === 0 && !showMilestoneForm ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                No milestones configured for this project.
+              </p>
+            ) : milestones.length > 0 ? (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Name
+                      </th>
+                      <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Budget (hours)
+                      </th>
+                      <th className="px-4 py-2.5">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {milestones.map((ms) => (
+                      <tr
+                        key={ms.id}
+                        className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                      >
+                        <td className="px-4 py-2.5 font-medium">
+                          {editingMilestoneId === ms.id ? (
+                            <input
+                              autoFocus
+                              value={editingMilestoneName}
+                              onChange={(e) =>
+                                setEditingMilestoneName(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape")
+                                  setEditingMilestoneId(null);
+                              }}
+                              className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          ) : (
+                            ms.name
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">
+                          {editingMilestoneId === ms.id ? (
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              value={editingMilestoneBudget}
+                              onChange={(e) =>
+                                setEditingMilestoneBudget(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape")
+                                  setEditingMilestoneId(null);
+                              }}
+                              className="w-24 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingMilestoneId(ms.id);
+                                setEditingMilestoneName(ms.name);
+                                setEditingMilestoneBudget(
+                                  ms.budgetHours != null
+                                    ? String(ms.budgetHours)
+                                    : "",
+                                );
+                              }}
+                              className="inline-flex items-center gap-1.5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                              title="Click to edit"
+                            >
+                              {ms.budgetHours != null
+                                ? `${Number(ms.budgetHours)}h`
+                                : "—"}
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 16 16"
+                                fill="currentColor"
+                                className="h-3 w-3 opacity-40"
+                              >
+                                <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                              </svg>
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {editingMilestoneId === ms.id && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api<ApiResponse<Milestone>>(
+                                      `/milestones/${ms.id}`,
+                                      {
+                                        method: "PUT",
+                                        body: JSON.stringify({
+                                          name: editingMilestoneName,
+                                          budgetHours: editingMilestoneBudget
+                                            ? parseFloat(editingMilestoneBudget)
+                                            : null,
+                                        }),
+                                      },
+                                    );
+                                    addToast("Milestone updated");
+                                    setEditingMilestoneId(null);
+                                    loadMilestones();
+                                  } catch {
+                                    addToast(
+                                      "Failed to update milestone",
+                                      "error",
+                                    );
+                                  }
+                                }}
+                                className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors text-sm font-medium"
+                              >
+                                Save
+                              </button>
+                            )}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api(`/milestones/${ms.id}`, {
+                                    method: "DELETE",
+                                  });
+                                  addToast("Milestone removed");
+                                  loadMilestones();
+                                } catch {
+                                  addToast(
+                                    "Failed to remove milestone",
+                                    "error",
+                                  );
+                                }
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              aria-label="Remove milestone"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="h-4 w-4"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {/* ── Project Time Categories ──────────────────── */}
+        {project && (
+          <section className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Time Categories</h2>
+              <button
+                onClick={() => setShowTimeCatForm((v) => !v)}
+                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+              >
+                {showTimeCatForm ? "Cancel" : "+ Add Category"}
+              </button>
+            </div>
+
+            {showTimeCatForm && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSavingTimeCat(true);
+                  const form = new FormData(e.currentTarget);
+                  let dto: CreateProjectTimeCategoryDto;
+
+                  if (timeCatMode === "existing") {
+                    const timeCategoryId = form.get("timeCategoryId") as string;
+                    dto = {
+                      projectId: id,
+                      timeCategoryId,
+                    };
+                  } else {
+                    dto = {
+                      projectId: id,
+                      name: form.get("name") as string,
+                      description:
+                        (form.get("description") as string) || undefined,
+                    };
+                  }
+                  try {
+                    await api<ApiResponse<ProjectTimeCategory>>(
+                      "/project-time-categories",
+                      {
+                        method: "POST",
+                        body: JSON.stringify(dto),
+                      },
+                    );
+                    addToast("Time category added");
+                    setShowTimeCatForm(false);
+                    loadProjectTimeCategories();
+                  } catch (err) {
+                    addToast(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to add time category",
+                      "error",
+                    );
+                  } finally {
+                    setSavingTimeCat(false);
+                  }
+                }}
+                className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 space-y-4"
+              >
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={timeCatMode === "existing"}
+                      onChange={() => setTimeCatMode("existing")}
+                      className="accent-emerald-600"
+                    />
+                    From existing
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={timeCatMode === "custom"}
+                      onChange={() => setTimeCatMode("custom")}
+                      className="accent-emerald-600"
+                    />
+                    Create new
+                  </label>
+                </div>
+
+                {timeCatMode === "existing" ? (
+                  (() => {
+                    const available = globalTimeCategories.filter(
+                      (gc) =>
+                        !projectTimeCategories.some(
+                          (ptc) => ptc.timeCategoryId === gc.id,
+                        ),
+                    );
+                    return available.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        All global time categories have already been added to
+                        this project. You can create a new custom category
+                        instead.
+                      </p>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Category <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="timeCategoryId"
+                          required
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        >
+                          <option value="">Select a category…</option>
+                          {available.map((gc) => (
+                            <option key={gc.id} value={gc.id}>
+                              {gc.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium mb-1">
+                        Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        name="name"
+                        required
+                        placeholder="e.g. Site Visit"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium mb-1">
+                        Description
+                      </label>
+                      <input
+                        name="description"
+                        placeholder="Optional description"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <button
+                    type="submit"
+                    disabled={savingTimeCat}
+                    className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {savingTimeCat ? "Adding…" : "Add Category"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {projectTimeCategories.length === 0 && !showTimeCatForm ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                No time categories configured for this project.
+              </p>
+            ) : projectTimeCategories.length > 0 ? (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Name
+                      </th>
+                      <th className="px-4 py-2.5">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectTimeCategories.map((ptc) => (
+                      <tr
+                        key={ptc.id}
+                        className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                      >
+                        <td className="px-4 py-2.5">
+                          <p className="font-medium">{ptc.name}</p>
+                          {ptc.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {ptc.description}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api(
+                                  `/project-time-categories/${ptc.id}`,
+                                  { method: "DELETE" },
+                                );
+                                addToast("Time category removed");
+                                loadProjectTimeCategories();
+                              } catch {
+                                addToast(
+                                  "Failed to remove time category",
+                                  "error",
+                                );
+                              }
+                            }}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                            aria-label="Remove time category"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-4 w-4"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {/* ── Team Rates ──────────────────────────────── */}
+        {project && (
+          <section className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Team Rates</h2>
+              <button
+                onClick={() => setShowRateForm((v) => !v)}
+                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+              >
+                {showRateForm ? "Cancel" : "+ Add Member"}
+              </button>
+            </div>
+
+            {showRateForm && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSavingRate(true);
+                  const form = new FormData(e.currentTarget);
+                  const hourlyStr = form.get("hourlyRate") as string;
+                  const dailyStr = form.get("dailyRate") as string;
+                  const dto: CreateProjectUserRateDto = {
+                    projectId: id,
+                    userId: form.get("userId") as string,
+                    hourlyRateCents: hourlyStr
+                      ? Math.round(parseFloat(hourlyStr) * 100)
+                      : undefined,
+                    dailyRateCents: dailyStr
+                      ? Math.round(parseFloat(dailyStr) * 100)
+                      : undefined,
+                  };
+                  try {
+                    await api<ApiResponse<ProjectUserRateWithUser>>(
+                      "/project-user-rates",
+                      { method: "POST", body: JSON.stringify(dto) },
+                    );
+                    addToast("Team member added");
+                    setShowRateForm(false);
+                    loadProjectUserRates();
+                  } catch (err) {
+                    addToast(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to add team member",
+                      "error",
+                    );
+                  } finally {
+                    setSavingRate(false);
+                  }
+                }}
+                className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-3"
+              >
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Team Member <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="userId"
+                    required
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">Select…</option>
+                    {users
+                      .filter(
+                        (u) => !projectUserRates.some((r) => r.userId === u.id),
+                      )
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Hourly Rate ($)
+                  </label>
+                  <input
+                    name="hourlyRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Daily Rate ($)
+                  </label>
+                  <input
+                    name="dailyRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <button
+                    type="submit"
+                    disabled={savingRate}
+                    className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {savingRate ? "Adding…" : "Add Member"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {projectUserRates.length === 0 && !showRateForm ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                No team members assigned. Add members to set project-specific
+                charge-out rates.
+              </p>
+            ) : projectUserRates.length > 0 ? (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Team Member
+                      </th>
+                      <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Hourly Rate
+                      </th>
+                      <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Daily Rate
+                      </th>
+                      <th className="px-4 py-2.5">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectUserRates.map((pur) => {
+                      const isEditing = editingRateId === pur.id;
+                      return (
+                        <tr
+                          key={pur.id}
+                          className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                        >
+                          <td className="px-4 py-2.5 font-medium">
+                            {pur.user.name}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                autoFocus
+                                value={editingHourly}
+                                onChange={(e) =>
+                                  setEditingHourly(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape")
+                                    setEditingRateId(null);
+                                }}
+                                placeholder="—"
+                                className="w-24 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              />
+                            ) : pur.hourlyRateCents != null ? (
+                              <span className="font-medium">
+                                $
+                                {(Number(pur.hourlyRateCents) / 100).toFixed(2)}
+                                /hr
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={editingDaily}
+                                onChange={(e) =>
+                                  setEditingDaily(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape")
+                                    setEditingRateId(null);
+                                }}
+                                placeholder="—"
+                                className="w-24 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              />
+                            ) : pur.dailyRateCents != null ? (
+                              <span className="font-medium">
+                                ${(Number(pur.dailyRateCents) / 100).toFixed(2)}
+                                /day
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {isEditing ? (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await api(
+                                        `/project-user-rates/${pur.id}`,
+                                        {
+                                          method: "PUT",
+                                          body: JSON.stringify({
+                                            hourlyRateCents: editingHourly
+                                              ? Math.round(
+                                                  parseFloat(editingHourly) *
+                                                    100,
+                                                )
+                                              : null,
+                                            dailyRateCents: editingDaily
+                                              ? Math.round(
+                                                  parseFloat(editingDaily) *
+                                                    100,
+                                                )
+                                              : null,
+                                          }),
+                                        },
+                                      );
+                                      addToast("Rates updated");
+                                      setEditingRateId(null);
+                                      loadProjectUserRates();
+                                    } catch {
+                                      addToast(
+                                        "Failed to update rates",
+                                        "error",
+                                      );
+                                    }
+                                  }}
+                                  className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors text-sm font-medium"
+                                >
+                                  Save
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingRateId(pur.id);
+                                    setEditingHourly(
+                                      pur.hourlyRateCents != null
+                                        ? (
+                                            Number(pur.hourlyRateCents) / 100
+                                          ).toFixed(2)
+                                        : "",
+                                    );
+                                    setEditingDaily(
+                                      pur.dailyRateCents != null
+                                        ? (
+                                            Number(pur.dailyRateCents) / 100
+                                          ).toFixed(2)
+                                        : "",
+                                    );
+                                  }}
+                                  className="text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                                  title="Edit rates"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                    className="h-4 w-4"
+                                  >
+                                    <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                                  </svg>
+                                </button>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api(`/project-user-rates/${pur.id}`, {
+                                      method: "DELETE",
+                                    });
+                                    addToast("Team member removed");
+                                    loadProjectUserRates();
+                                  } catch {
+                                    addToast(
+                                      "Failed to remove team member",
+                                      "error",
+                                    );
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-red-500 transition-colors"
+                                aria-label="Remove team member"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                  className="h-4 w-4"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {/* ── Project Contacts ──────────────────────────── */}
+        {project && (
+          <section className="mt-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Contacts</h2>
+            </div>
+
+            {(() => {
+              const assignedIds = new Set(
+                projectContacts.map((pc) => pc.contactId),
+              );
+              const available = clientContacts.filter(
+                (c) => !assignedIds.has(c.id),
+              );
+              return available.length > 0 ? (
+                <div className="mb-4 flex items-end gap-3">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium mb-1">
+                      Add a contact from {project.client.name}
+                    </label>
+                    <select
+                      id="addContactSelect"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="">Select contact…</option>
+                      {available.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                          {c.title ? ` — ${c.title}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingContact}
+                    onClick={async () => {
+                      const sel = document.getElementById(
+                        "addContactSelect",
+                      ) as HTMLSelectElement;
+                      const contactId = sel.value;
+                      if (!contactId) return;
+                      setSavingContact(true);
+                      try {
+                        await api("/project-contacts", {
+                          method: "POST",
+                          body: JSON.stringify({
+                            projectId: id,
+                            contactId,
+                          }),
+                        });
+                        addToast("Contact added to project");
+                        loadProjectContacts();
+                        sel.value = "";
+                      } catch {
+                        addToast("Failed to add contact", "error");
+                      } finally {
+                        setSavingContact(false);
+                      }
+                    }}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {savingContact ? "Adding…" : "Add"}
+                  </button>
+                </div>
+              ) : clientContacts.length === 0 ? (
+                <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                  No contacts for this client yet.{" "}
+                  <Link
+                    href={`/clients/${project.clientId}`}
+                    className="text-emerald-600 hover:underline"
+                  >
+                    Add contacts on the client page
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                  All contacts from {project.client.name} are already assigned.
+                </p>
+              );
+            })()}
+
+            {projectContacts.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                No contacts assigned to this project.
+              </p>
+            ) : (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Name
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Title
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Email
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Phone
+                      </th>
+                      <th className="w-12" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectContacts.map((pc) => (
+                      <tr
+                        key={pc.id}
+                        className="border-b border-gray-100 dark:border-gray-700/50"
+                      >
+                        <td className="px-4 py-2.5 font-medium">
+                          {pc.contact.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
+                          {pc.contact.title || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
+                          {pc.contact.email ? (
+                            <a
+                              href={`mailto:${pc.contact.email}`}
+                              className="hover:underline"
+                            >
+                              {pc.contact.email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
+                          {pc.contact.phone || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api(`/project-contacts/${pc.id}`, {
+                                  method: "DELETE",
+                                });
+                                addToast("Contact removed from project");
+                                loadProjectContacts();
+                              } catch {
+                                addToast("Failed to remove contact", "error");
+                              }
+                            }}
+                            className="text-gray-400 hover:text-red-500 transition-colors"
+                            aria-label="Remove contact"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-4 w-4"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
       </div>

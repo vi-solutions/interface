@@ -17,6 +17,20 @@ export class ProjectExpensesService {
    * the parent global expense (if linked) to fill in name/type/description.
    */
   async findByProject(projectId: string): Promise<ProjectExpense[]> {
+    // Auto-create project records for global expenses that don't have one yet
+    await this.pool.query(
+      `INSERT INTO project_expenses (id, project_id, expense_id, rate_cents)
+       SELECT gen_random_uuid(), $1, e.id, COALESCE(e.rate_cents, 0)
+       FROM expenses e
+       WHERE e.archived_at IS NULL
+         AND e.id NOT IN (
+           SELECT expense_id FROM project_expenses
+           WHERE project_id = $1 AND expense_id IS NOT NULL
+         )
+       ON CONFLICT (project_id, expense_id) DO NOTHING`,
+      [projectId],
+    );
+
     const { rows } = await this.pool.query(
       `SELECT pe.id, pe.project_id AS "projectId", pe.expense_id AS "expenseId",
               COALESCE(pe.name, e.name) AS name,
@@ -27,6 +41,7 @@ export class ProjectExpensesService {
        FROM project_expenses pe
        LEFT JOIN expenses e ON e.id = pe.expense_id
        WHERE pe.project_id = $1
+         AND (pe.expense_id IS NULL OR e.archived_at IS NULL)
        ORDER BY COALESCE(pe.name, e.name)`,
       [projectId],
     );

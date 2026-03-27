@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/documents", label: "Documents", icon: DocumentIcon },
   { href: "/time", label: "Time", icon: ClockIcon },
   { href: "/expenses", label: "Expenses", icon: CurrencyIcon },
+  { href: "/time-categories", label: "Time Categories", icon: TagIcon },
 ];
 
 export function SideNav({
@@ -280,6 +281,23 @@ function CurrencyIcon({ className }: { className?: string }) {
       <path
         fillRule="evenodd"
         d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm-.75 4.75a.75.75 0 0 0-1.28-.53l-2.5 2.5a.75.75 0 0 0 0 1.06l2.5 2.5a.75.75 0 0 0 1.28-.53V10.5h1a1.25 1.25 0 1 1 0 2.5h-.5a.75.75 0 0 0 0 1.5h.5a2.75 2.75 0 1 0 0-5.5h-1V6.75Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function TagIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M4.5 2A2.5 2.5 0 0 0 2 4.5v3.879a2.5 2.5 0 0 0 .732 1.767l7.5 7.5a2.5 2.5 0 0 0 3.536 0l3.878-3.878a2.5 2.5 0 0 0 0-3.536l-7.5-7.5A2.5 2.5 0 0 0 8.38 2H4.5ZM5 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
         clipRule="evenodd"
       />
     </svg>

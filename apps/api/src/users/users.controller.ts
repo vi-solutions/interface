@@ -43,6 +43,8 @@ export class UsersController {
       body.email,
       body.password,
       body.name,
+      body.rateCents,
+      body.hourlyCostCents,
     );
     if (body.isAdmin) {
       return { data: await this.usersService.setAdmin(user.id, true) };
