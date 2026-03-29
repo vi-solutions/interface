@@ -16,6 +16,8 @@ import { ProjectContactsModule } from "./project-contacts/project-contacts.modul
 import { TimeCategoriesModule } from "./time-categories/time-categories.module";
 import { ProjectTimeCategoriesModule } from "./project-time-categories/project-time-categories.module";
 import { ProjectUserRatesModule } from "./project-user-rates/project-user-rates.module";
+import { QuickbooksModule } from "./quickbooks/quickbooks.module";
+import { GoogleDriveModule } from "./google-drive/google-drive.module";
 import { AuthGuard } from "./auth/auth.guard";
 
 @Module({
@@ -36,6 +38,8 @@ import { AuthGuard } from "./auth/auth.guard";
     TimeCategoriesModule,
     ProjectTimeCategoriesModule,
     ProjectUserRatesModule,
+    QuickbooksModule,
+    GoogleDriveModule,
   ],
   providers: [{ provide: APP_GUARD, useExisting: AuthGuard }],
 })

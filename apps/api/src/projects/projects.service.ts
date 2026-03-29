@@ -15,10 +15,11 @@ export class ProjectsService {
 
   async findAll(): Promise<ProjectWithClient[]> {
     const { rows } = await this.pool.query(
-      `SELECT p.id, p.client_id AS "clientId", p.name, p.description, p.status, p.phase,
+      `SELECT p.id, p.client_id AS "clientId", p.name, p.code, p.description, p.status, p.phase,
               p.start_date AS "startDate", p.end_date AS "endDate",
               p.budget_cents AS "budgetCents",
               p.project_manager_id AS "projectManagerId",
+              p.google_drive_folder_id AS "googleDriveFolderId",
               p.created_at AS "createdAt", p.updated_at AS "updatedAt",
               json_build_object('id', c.id, 'name', c.name) AS client,
               CASE WHEN pm.id IS NOT NULL THEN json_build_object('id', pm.id, 'name', pm.name) ELSE NULL END AS "projectManager"
@@ -32,10 +33,11 @@ export class ProjectsService {
 
   async findById(id: string): Promise<ProjectWithClient> {
     const { rows } = await this.pool.query(
-      `SELECT p.id, p.client_id AS "clientId", p.name, p.description, p.status, p.phase,
+      `SELECT p.id, p.client_id AS "clientId", p.name, p.code, p.description, p.status, p.phase,
               p.start_date AS "startDate", p.end_date AS "endDate",
               p.budget_cents AS "budgetCents",
               p.project_manager_id AS "projectManagerId",
+              p.google_drive_folder_id AS "googleDriveFolderId",
               p.created_at AS "createdAt", p.updated_at AS "updatedAt",
               json_build_object('id', c.id, 'name', c.name) AS client,
               CASE WHEN pm.id IS NOT NULL THEN json_build_object('id', pm.id, 'name', pm.name) ELSE NULL END AS "projectManager"
@@ -52,17 +54,19 @@ export class ProjectsService {
   async create(dto: CreateProjectDto): Promise<Project> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO projects (id, client_id, name, description, status, phase, start_date, end_date, budget_cents, project_manager_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, client_id AS "clientId", name, description, status, phase,
+      `INSERT INTO projects (id, client_id, name, code, description, status, phase, start_date, end_date, budget_cents, project_manager_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, client_id AS "clientId", name, code, description, status, phase,
                  start_date AS "startDate", end_date AS "endDate",
                  budget_cents AS "budgetCents",
                  project_manager_id AS "projectManagerId",
+                 google_drive_folder_id AS "googleDriveFolderId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.clientId,
         dto.name,
+        dto.code ?? null,
         dto.description ?? null,
         dto.status ?? "draft",
         dto.phase ?? null,
@@ -78,19 +82,21 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto): Promise<Project> {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
-      `UPDATE projects SET client_id = $2, name = $3, description = $4, status = $5,
-              phase = $6, start_date = $7, end_date = $8, budget_cents = $9,
-              project_manager_id = $10, updated_at = NOW()
+      `UPDATE projects SET client_id = $2, name = $3, code = $4, description = $5, status = $6,
+              phase = $7, start_date = $8, end_date = $9, budget_cents = $10,
+              project_manager_id = $11, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, client_id AS "clientId", name, description, status, phase,
+       RETURNING id, client_id AS "clientId", name, code, description, status, phase,
                  start_date AS "startDate", end_date AS "endDate",
                  budget_cents AS "budgetCents",
                  project_manager_id AS "projectManagerId",
+                 google_drive_folder_id AS "googleDriveFolderId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.clientId ?? existing.clientId,
         dto.name ?? existing.name,
+        dto.code !== undefined ? dto.code || null : existing.code,
         dto.description ?? existing.description,
         dto.status ?? existing.status,
         dto.phase ?? existing.phase,

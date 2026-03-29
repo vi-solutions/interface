@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
+import { QboSyncService } from "../quickbooks/qbo-sync.service";
 import type {
   TimeEntry,
   TimeEntryWithUser,
@@ -12,7 +13,10 @@ import type {
 
 @Injectable()
 export class TimeEntriesService {
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly qboSync: QboSyncService,
+  ) {}
 
   async findRecent(limit = 50): Promise<TimeEntryWithDetails[]> {
     const { rows } = await this.pool.query(
@@ -20,7 +24,9 @@ export class TimeEntriesService {
               t.milestone_id AS "milestoneId",
               t.project_time_category_id AS "projectTimeCategoryId",
               t.date, t.hours,
-              t.description, t.billable, t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              t.description, t.billable,
+              t.qbo_time_activity_id AS "qboTimeActivityId",
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               json_build_object('id', p.id, 'name', p.name) AS project,
               CASE WHEN m.id IS NOT NULL THEN json_build_object('id', m.id, 'name', m.name) ELSE NULL END AS milestone,
@@ -44,7 +50,9 @@ export class TimeEntriesService {
               t.milestone_id AS "milestoneId",
               t.project_time_category_id AS "projectTimeCategoryId",
               t.date, t.hours,
-              t.description, t.billable, t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              t.description, t.billable,
+              t.qbo_time_activity_id AS "qboTimeActivityId",
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               CASE WHEN m.id IS NOT NULL THEN json_build_object('id', m.id, 'name', m.name) ELSE NULL END AS milestone,
               CASE WHEN ptc.id IS NOT NULL THEN json_build_object('id', ptc.id, 'name', COALESCE(ptc.name, tc.name)) ELSE NULL END AS "timeCategory"
@@ -65,7 +73,9 @@ export class TimeEntriesService {
               milestone_id AS "milestoneId",
               project_time_category_id AS "projectTimeCategoryId",
               date, hours,
-              description, billable, created_at AS "createdAt", updated_at AS "updatedAt"
+              description, billable,
+              qbo_time_activity_id AS "qboTimeActivityId",
+              created_at AS "createdAt", updated_at AS "updatedAt"
        FROM time_entries WHERE id = $1`,
       [id],
     );
@@ -82,7 +92,9 @@ export class TimeEntriesService {
                  milestone_id AS "milestoneId",
                  project_time_category_id AS "projectTimeCategoryId",
                  date, hours,
-                 description, billable, created_at AS "createdAt", updated_at AS "updatedAt"`,
+                 description, billable,
+                 qbo_time_activity_id AS "qboTimeActivityId",
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.projectId,
@@ -95,6 +107,8 @@ export class TimeEntriesService {
         dto.billable ?? true,
       ],
     );
+    // Fire-and-forget QBO sync
+    this.qboSync.syncTimeEntryCreate(id);
     return rows[0];
   }
 
@@ -109,7 +123,9 @@ export class TimeEntriesService {
                  milestone_id AS "milestoneId",
                  project_time_category_id AS "projectTimeCategoryId",
                  date, hours,
-                 description, billable, created_at AS "createdAt", updated_at AS "updatedAt"`,
+                 description, billable,
+                 qbo_time_activity_id AS "qboTimeActivityId",
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.projectId ?? existing.projectId,
@@ -124,10 +140,14 @@ export class TimeEntriesService {
         dto.billable ?? existing.billable,
       ],
     );
+    // Fire-and-forget QBO sync
+    this.qboSync.syncTimeEntryUpdate(id);
     return rows[0];
   }
 
   async remove(id: string): Promise<void> {
+    // Sync delete before removing the row (need qbo_time_activity_id)
+    await this.qboSync.syncTimeEntryDelete(id);
     const result = await this.pool.query(
       "DELETE FROM time_entries WHERE id = $1",
       [id],

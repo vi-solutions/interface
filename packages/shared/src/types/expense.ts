@@ -57,6 +57,7 @@ export interface UserExpense {
   quantity: number | null;
   totalCents: number;
   notes: string | null;
+  qboExpenseId: string | null;
   createdAt: string;
   updatedAt: string;
 }

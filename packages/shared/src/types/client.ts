@@ -6,6 +6,7 @@ export interface Client {
   contactPhone: string | null;
   address: string | null;
   notes: string | null;
+  qboCustomerId: string | null;
   createdAt: string;
   updatedAt: string;
 }

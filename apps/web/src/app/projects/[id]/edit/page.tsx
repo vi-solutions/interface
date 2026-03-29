@@ -181,6 +181,7 @@ export default function EditProjectPage() {
     const dto: UpdateProjectDto = {
       clientId: form.get("clientId") as string,
       name: form.get("name") as string,
+      code: (form.get("code") as string) || undefined,
       description: (form.get("description") as string) || undefined,
       status: (form.get("status") as ProjectStatus) || undefined,
       phase: ((form.get("phase") as string) || undefined) as
@@ -252,6 +253,15 @@ export default function EditProjectPage() {
                 name="name"
                 required
                 defaultValue={project.name}
+              />
+            </FormField>
+
+            <FormField label="Project Code" htmlFor="code">
+              <Input
+                id="code"
+                name="code"
+                placeholder="e.g. 2026-99-001"
+                defaultValue={project.code ?? ""}
               />
             </FormField>
 

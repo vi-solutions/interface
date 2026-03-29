@@ -56,6 +56,7 @@ export default function NewProjectPage() {
     const dto: CreateProjectDto = {
       clientId: form.get("clientId") as string,
       name: form.get("name") as string,
+      code: (form.get("code") as string) || undefined,
       description: (form.get("description") as string) || undefined,
       phase: ((form.get("phase") as string) || undefined) as
         | ProjectPhase
@@ -103,6 +104,10 @@ export default function NewProjectPage() {
 
           <FormField label="Project Name" htmlFor="name" required>
             <Input id="name" name="name" required />
+          </FormField>
+
+          <FormField label="Project Code" htmlFor="code">
+            <Input id="code" name="code" placeholder="e.g. 2026-99-001" />
           </FormField>
 
           <FormField label="Description" htmlFor="description">

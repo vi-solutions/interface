@@ -10,6 +10,8 @@ import type {
   ProjectWithClient,
   Contact,
   CreateContactDto,
+  QboConnection,
+  QboCustomer,
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -32,6 +34,13 @@ export default function ClientDetailPage() {
   const [editingPhone, setEditingPhone] = useState("");
   const [editingTitle, setEditingTitle] = useState("");
 
+  /* QBO linking state */
+  const [qboConnected, setQboConnected] = useState(false);
+  const [qboCustomers, setQboCustomers] = useState<QboCustomer[]>([]);
+  const [qboSearch, setQboSearch] = useState("");
+  const [qboSearching, setQboSearching] = useState(false);
+  const [qboLinking, setQboLinking] = useState(false);
+
   const loadContacts = useCallback(() => {
     api<ApiListResponse<Contact>>(`/contacts?clientId=${id}`)
       .then((res) => setContacts(res.data))
@@ -49,6 +58,9 @@ export default function ClientDetailPage() {
       .then((res) => setProjects(res.data.filter((p) => p.clientId === id)))
       .catch(() => {});
     loadContacts();
+    api<ApiResponse<QboConnection | null>>("/quickbooks/status")
+      .then((res) => setQboConnected(res.data !== null))
+      .catch(() => {});
   }, [authenticated, id, loadContacts]);
 
   async function handleAddContact(e: React.FormEvent<HTMLFormElement>) {
@@ -117,6 +129,51 @@ export default function ClientDetailPage() {
       loadContacts();
     } catch {
       addToast("Failed to remove contact", "error");
+    }
+  }
+
+  async function handleQboSearch() {
+    setQboSearching(true);
+    try {
+      const res = await api<{ data: QboCustomer[] }>(
+        `/quickbooks/customers?search=${encodeURIComponent(qboSearch)}`,
+      );
+      setQboCustomers(res.data);
+    } catch {
+      addToast("Failed to search QBO customers", "error");
+    } finally {
+      setQboSearching(false);
+    }
+  }
+
+  async function handleQboLink(qboCustomerId: string) {
+    setQboLinking(true);
+    try {
+      const res = await api<ApiResponse<Client>>(
+        `/quickbooks/clients/${id}/link`,
+        { method: "POST", body: JSON.stringify({ qboCustomerId }) },
+      );
+      setClient(res.data);
+      setQboCustomers([]);
+      setQboSearch("");
+      addToast("Linked to QuickBooks customer");
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : "Failed to link", "error");
+    } finally {
+      setQboLinking(false);
+    }
+  }
+
+  async function handleQboUnlink() {
+    try {
+      const res = await api<ApiResponse<Client>>(
+        `/quickbooks/clients/${id}/link`,
+        { method: "DELETE" },
+      );
+      setClient(res.data);
+      addToast("Unlinked from QuickBooks");
+    } catch {
+      addToast("Failed to unlink", "error");
     }
   }
 
@@ -198,6 +255,80 @@ export default function ClientDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* ── QuickBooks Linking ── */}
+            {qboConnected && (
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold mb-4">
+                  QuickBooks Online
+                </h2>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                  {client.qboCustomerId ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Linked to QBO Customer #{client.qboCustomerId}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleQboUnlink}
+                        className="text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                        Link this client to a QuickBooks customer to enable
+                        automatic sync.
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          value={qboSearch}
+                          onChange={(e) => setQboSearch(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleQboSearch();
+                            }
+                          }}
+                          placeholder="Search QBO customers…"
+                          className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={handleQboSearch}
+                          disabled={qboSearching}
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                        >
+                          {qboSearching ? "Searching…" : "Search"}
+                        </button>
+                      </div>
+                      {qboCustomers.length > 0 && (
+                        <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                          {qboCustomers.map((c) => (
+                            <li
+                              key={c.id}
+                              className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                            >
+                              <span className="text-sm">{c.displayName}</span>
+                              <button
+                                onClick={() => handleQboLink(c.id)}
+                                disabled={qboLinking}
+                                className="text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors disabled:opacity-50"
+                              >
+                                Link
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── Contacts ── */}
             <div className="mb-8">

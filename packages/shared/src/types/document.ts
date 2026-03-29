@@ -3,9 +3,10 @@ export interface Document {
   projectId: string;
   name: string;
   googleDriveFileId: string | null;
-  googleDriveUrl: string;
+  googleDriveUrl: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  category: string | null;
   uploadedBy: string;
   createdAt: string;
 }
@@ -18,8 +19,11 @@ export interface DocumentWithDetails extends Document {
 export interface CreateDocumentDto {
   projectId: string;
   name: string;
-  googleDriveUrl: string;
+  googleDriveUrl?: string;
+  googleDriveFileId?: string;
   mimeType?: string;
+  sizeBytes?: number;
+  category?: string;
 }
 
 export interface UpdateDocumentDto {

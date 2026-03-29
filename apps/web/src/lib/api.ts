@@ -30,3 +30,22 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
+
+export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body,
+  });
+
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.message ?? `API error ${res.status}`);
+  }
+
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}

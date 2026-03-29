@@ -85,18 +85,32 @@ export function SideNav({
           })}
 
           {user.isAdmin && (
-            <Link
-              href="/admin/users"
-              onClick={onClose}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                isActive("/admin")
-                  ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
-                  : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              }`}
-            >
-              <ShieldIcon className="h-5 w-5" />
-              Admin
-            </Link>
+            <>
+              <Link
+                href="/admin/users"
+                onClick={onClose}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive("/admin/users")
+                    ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                    : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                }`}
+              >
+                <ShieldIcon className="h-5 w-5" />
+                Admin
+              </Link>
+              <Link
+                href="/admin/integrations"
+                onClick={onClose}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive("/admin/integrations")
+                    ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                    : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                }`}
+              >
+                <LinkIcon className="h-5 w-5" />
+                Integrations
+              </Link>
+            </>
           )}
         </nav>
 
@@ -300,6 +314,20 @@ function TagIcon({ className }: { className?: string }) {
         d="M4.5 2A2.5 2.5 0 0 0 2 4.5v3.879a2.5 2.5 0 0 0 .732 1.767l7.5 7.5a2.5 2.5 0 0 0 3.536 0l3.878-3.878a2.5 2.5 0 0 0 0-3.536l-7.5-7.5A2.5 2.5 0 0 0 8.38 2H4.5ZM5 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
         clipRule="evenodd"
       />
+    </svg>
+  );
+}
+
+function LinkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
+      <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
     </svg>
   );
 }

@@ -15,6 +15,7 @@ export interface Project {
   id: string;
   clientId: string;
   name: string;
+  code: string | null;
   description: string | null;
   status: ProjectStatus;
   phase: ProjectPhase | null;
@@ -22,6 +23,7 @@ export interface Project {
   endDate: string | null;
   budgetCents: number | null;
   projectManagerId: string | null;
+  googleDriveFolderId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +31,7 @@ export interface Project {
 export interface CreateProjectDto {
   clientId: string;
   name: string;
+  code?: string;
   description?: string;
   status?: ProjectStatus;
   phase?: ProjectPhase;

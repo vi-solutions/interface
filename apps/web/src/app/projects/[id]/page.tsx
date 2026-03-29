@@ -20,7 +20,7 @@ import type {
   ProjectUserRateWithUser,
   User,
 } from "@interface/shared";
-import { api } from "@/lib/api";
+import { api, apiUpload } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
@@ -264,7 +264,7 @@ export default function ProjectDetailPage() {
       projectId: id,
       name: form.get("docName") as string,
       googleDriveUrl: form.get("googleDriveUrl") as string,
-      mimeType: (form.get("mimeType") as string) || undefined,
+      category: (form.get("category") as string) || undefined,
     };
 
     try {
@@ -321,7 +321,14 @@ export default function ProjectDetailPage() {
 
             <div className="flex items-start justify-between mb-8">
               <div>
-                <h1 className="text-2xl font-bold">{project.name}</h1>
+                <h1 className="text-2xl font-bold">
+                  {project.code && (
+                    <span className="text-gray-400 dark:text-gray-500 font-normal mr-2">
+                      {project.code}
+                    </span>
+                  )}
+                  {project.name}
+                </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-1">
                   <Link
                     href={`/clients/${project.client.id}`}
@@ -614,25 +621,18 @@ export default function ProjectDetailPage() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Type
+                      Category
                     </label>
                     <select
-                      name="mimeType"
+                      name="category"
                       className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
-                      <option value="">Auto-detect</option>
-                      <option value="application/pdf">PDF</option>
-                      <option value="application/vnd.google-apps.document">
-                        Google Doc
-                      </option>
-                      <option value="application/vnd.google-apps.spreadsheet">
-                        Google Sheet
-                      </option>
-                      <option value="application/vnd.google-apps.presentation">
-                        Google Slides
-                      </option>
-                      <option value="image/jpeg">Image (JPEG)</option>
-                      <option value="image/png">Image (PNG)</option>
+                      <option value="">None</option>
+                      {DOCUMENT_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -661,75 +661,49 @@ export default function ProjectDetailPage() {
                 </form>
               )}
 
-              {documents.length === 0 && !showDocForm ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No documents linked yet. Click &quot;+ Link Document&quot; to
-                  add one.
-                </p>
-              ) : documents.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center gap-4 px-4 py-3"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className={`h-8 w-8 shrink-0 ${
-                          doc.mimeType?.includes("spreadsheet")
-                            ? "text-green-500"
-                            : doc.mimeType?.includes("presentation")
-                              ? "text-yellow-500"
-                              : doc.mimeType?.includes("pdf")
-                                ? "text-red-500"
-                                : doc.mimeType?.includes("image")
-                                  ? "text-purple-500"
-                                  : "text-blue-500"
-                        }`}
-                      >
-                        <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13Z" />
-                      </svg>
-                      <div className="min-w-0 flex-1">
-                        <a
-                          href={doc.googleDriveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-sm hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
-                        >
-                          {doc.name}
-                          <span className="ml-1.5 text-gray-400 text-xs">
-                            ↗
-                          </span>
-                        </a>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Added by {doc.uploadedByName} ·{" "}
-                          {new Date(doc.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleDocDelete(doc.id)}
-                        className="shrink-0 text-gray-400 hover:text-red-500 transition-colors"
-                        aria-label="Remove document"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="h-4 w-4"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+              {/* Upload dropzones per category */}
+              {project.code && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+                  {DOCUMENT_CATEGORIES.map((cat) => (
+                    <CategoryDropzone
+                      key={cat}
+                      category={cat}
+                      projectId={id}
+                      documents={documents.filter((d) => d.category === cat)}
+                      onUploadComplete={loadDocuments}
+                      onDelete={handleDocDelete}
+                    />
                   ))}
                 </div>
-              ) : null}
+              )}
+
+              {!project.code && (
+                <div className="mb-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  Set a project code on the{" "}
+                  <Link
+                    href={`/projects/${id}/edit`}
+                    className="text-emerald-600 hover:underline"
+                  >
+                    edit page
+                  </Link>{" "}
+                  to enable file uploads with organized Drive folders.
+                </div>
+              )}
+
+              {/* Uncategorized documents */}
+              {documents.filter((d) => !d.category).length > 0 && (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700/50">
+                  {documents
+                    .filter((d) => !d.category)
+                    .map((doc) => (
+                      <DocumentRow
+                        key={doc.id}
+                        doc={doc}
+                        onDelete={handleDocDelete}
+                      />
+                    ))}
+                </div>
+              )}
             </section>
 
             {/* ── User Expenses ─────────────────────────────────── */}
@@ -1104,7 +1078,7 @@ export default function ProjectDetailPage() {
                       name="date"
                       type="date"
                       required
-                      defaultValue={new Date().toISOString().slice(0, 10)}
+                      defaultValue={new Date().toLocaleDateString("en-CA")}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
@@ -1375,5 +1349,228 @@ export default function ProjectDetailPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+const DOCUMENT_CATEGORIES = [
+  "Project Management",
+  "Correspondence",
+  "Reference Documents",
+  "Reporting",
+  "Data",
+  "Mapping",
+] as const;
+
+function CategoryDropzone({
+  category,
+  projectId,
+  documents,
+  onUploadComplete,
+  onDelete,
+}: {
+  category: string;
+  projectId: string;
+  documents: DocumentWithDetails[];
+  onUploadComplete: () => void;
+  onDelete: (id: string) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const { addToast } = useToast();
+
+  async function uploadFiles(files: FileList | File[]) {
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("projectId", projectId);
+        fd.append("category", category);
+        await apiUpload<ApiResponse<DocumentWithDetails>>(
+          "/documents/upload",
+          fd,
+        );
+      }
+      addToast(
+        `${files.length === 1 ? "File" : "Files"} uploaded to ${category}`,
+      );
+      onUploadComplete();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Upload failed", "error");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files && e.target.files.length > 0) {
+      uploadFiles(e.target.files);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      className={`rounded-lg border-2 border-dashed p-4 transition-colors ${
+        dragging
+          ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20"
+          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+      }`}
+    >
+      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+        {category}
+      </h3>
+
+      {documents.length > 0 && (
+        <ul className="space-y-1 mb-3">
+          {documents.map((doc) => (
+            <li key={doc.id} className="flex items-center gap-2 text-xs group">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4 shrink-0 text-gray-400"
+              >
+                <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13Z" />
+              </svg>
+              <a
+                href={doc.googleDriveUrl ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400"
+              >
+                {doc.name}
+              </a>
+              <button
+                onClick={() => onDelete(doc.id)}
+                className="ml-auto shrink-0 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+                aria-label="Delete document"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  className="h-3 w-3"
+                >
+                  <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
+                </svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <label className="flex flex-col items-center cursor-pointer text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+        {uploading ? (
+          <span className="text-xs">Uploading…</span>
+        ) : (
+          <>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="h-6 w-6 mb-1"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+              />
+            </svg>
+            <span className="text-xs">Drop files or click to upload</span>
+          </>
+        )}
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFileInput}
+          disabled={uploading}
+        />
+      </label>
+    </div>
+  );
+}
+
+function DocumentRow({
+  doc,
+  onDelete,
+}: {
+  doc: DocumentWithDetails;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        className={`h-8 w-8 shrink-0 ${
+          doc.mimeType?.includes("spreadsheet")
+            ? "text-green-500"
+            : doc.mimeType?.includes("presentation")
+              ? "text-yellow-500"
+              : doc.mimeType?.includes("pdf")
+                ? "text-red-500"
+                : doc.mimeType?.includes("image")
+                  ? "text-purple-500"
+                  : "text-blue-500"
+        }`}
+      >
+        <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13Z" />
+      </svg>
+      <div className="min-w-0 flex-1">
+        <a
+          href={doc.googleDriveUrl ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-sm hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
+        >
+          {doc.name}
+          <span className="ml-1.5 text-gray-400 text-xs">↗</span>
+        </a>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Added by {doc.uploadedByName} ·{" "}
+          {new Date(doc.createdAt).toLocaleDateString()}
+          {doc.category && (
+            <span className="ml-2 text-gray-400">· {doc.category}</span>
+          )}
+        </p>
+      </div>
+      <button
+        onClick={() => onDelete(doc.id)}
+        className="shrink-0 text-gray-400 hover:text-red-500 transition-colors"
+        aria-label="Remove document"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="h-4 w-4"
+        >
+          <path
+            fillRule="evenodd"
+            d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+    </div>
   );
 }

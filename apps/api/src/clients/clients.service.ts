@@ -16,6 +16,7 @@ export class ClientsService {
     const { rows } = await this.pool.query(
       `SELECT id, name, contact_name AS "contactName", contact_email AS "contactEmail",
               contact_phone AS "contactPhone", address, notes,
+              qbo_customer_id AS "qboCustomerId",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM clients ORDER BY name`,
     );
@@ -26,6 +27,7 @@ export class ClientsService {
     const { rows } = await this.pool.query(
       `SELECT id, name, contact_name AS "contactName", contact_email AS "contactEmail",
               contact_phone AS "contactPhone", address, notes,
+              qbo_customer_id AS "qboCustomerId",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM clients WHERE id = $1`,
       [id],
@@ -41,6 +43,7 @@ export class ClientsService {
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, name, contact_name AS "contactName", contact_email AS "contactEmail",
                  contact_phone AS "contactPhone", address, notes,
+                 qbo_customer_id AS "qboCustomerId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -63,6 +66,7 @@ export class ClientsService {
        WHERE id = $1
        RETURNING id, name, contact_name AS "contactName", contact_email AS "contactEmail",
                  contact_phone AS "contactPhone", address, notes,
+                 qbo_customer_id AS "qboCustomerId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -74,6 +78,23 @@ export class ClientsService {
         dto.notes ?? existing.notes,
       ],
     );
+    return rows[0];
+  }
+
+  async linkQboCustomer(
+    id: string,
+    qboCustomerId: string | null,
+  ): Promise<Client> {
+    const { rows } = await this.pool.query(
+      `UPDATE clients SET qbo_customer_id = $2, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, name, contact_name AS "contactName", contact_email AS "contactEmail",
+                 contact_phone AS "contactPhone", address, notes,
+                 qbo_customer_id AS "qboCustomerId",
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
+      [id, qboCustomerId],
+    );
+    if (!rows[0]) throw new NotFoundException("Client not found");
     return rows[0];
   }
 

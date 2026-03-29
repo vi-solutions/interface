@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
+import { QboSyncService } from "../quickbooks/qbo-sync.service";
 import type {
   UserExpense,
   UserExpenseWithDetails,
@@ -11,14 +12,18 @@ import type {
 
 @Injectable()
 export class UserExpensesService {
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly qboSync: QboSyncService,
+  ) {}
 
   async findByProject(projectId: string): Promise<UserExpenseWithDetails[]> {
     const { rows } = await this.pool.query(
       `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
               ue.project_expense_id AS "projectExpenseId",
               ue.date, ue.quantity, ue.total_cents AS "totalCents",
-              ue.notes, ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
+              ue.notes, ue.qbo_expense_id AS "qboExpenseId",
+              ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               COALESCE(pe.name, e.name) AS "expenseName",
               COALESCE(pe.type, e.type) AS "expenseType"
@@ -38,7 +43,8 @@ export class UserExpensesService {
       `SELECT id, project_id AS "projectId", user_id AS "userId",
               project_expense_id AS "projectExpenseId",
               date, quantity, total_cents AS "totalCents",
-              notes, created_at AS "createdAt", updated_at AS "updatedAt"
+              notes, qbo_expense_id AS "qboExpenseId",
+              created_at AS "createdAt", updated_at AS "updatedAt"
        FROM user_expenses WHERE id = $1`,
       [id],
     );
@@ -54,7 +60,8 @@ export class UserExpensesService {
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
                  date, quantity, total_cents AS "totalCents",
-                 notes, created_at AS "createdAt", updated_at AS "updatedAt"`,
+                 notes, qbo_expense_id AS "qboExpenseId",
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.projectId,
@@ -66,6 +73,8 @@ export class UserExpensesService {
         dto.notes ?? null,
       ],
     );
+    // Fire-and-forget QBO sync
+    this.qboSync.syncExpenseCreate(id);
     return rows[0];
   }
 
@@ -78,7 +87,8 @@ export class UserExpensesService {
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
                  date, quantity, total_cents AS "totalCents",
-                 notes, created_at AS "createdAt", updated_at AS "updatedAt"`,
+                 notes, qbo_expense_id AS "qboExpenseId",
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.date ?? existing.date,
@@ -87,10 +97,14 @@ export class UserExpensesService {
         dto.notes ?? existing.notes,
       ],
     );
+    // Fire-and-forget QBO sync
+    this.qboSync.syncExpenseUpdate(id);
     return rows[0];
   }
 
   async remove(id: string): Promise<void> {
+    // Sync delete before removing the row (need qbo_expense_id)
+    await this.qboSync.syncExpenseDelete(id);
     const result = await this.pool.query(
       "DELETE FROM user_expenses WHERE id = $1",
       [id],
