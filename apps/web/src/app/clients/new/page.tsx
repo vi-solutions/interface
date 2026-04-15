@@ -33,9 +33,6 @@ export default function NewClientPage() {
     const form = new FormData(e.currentTarget);
     const dto: CreateClientDto = {
       name: form.get("name") as string,
-      contactName: (form.get("contactName") as string) || undefined,
-      contactEmail: (form.get("contactEmail") as string) || undefined,
-      contactPhone: (form.get("contactPhone") as string) || undefined,
       address: (form.get("address") as string) || undefined,
       notes: (form.get("notes") as string) || undefined,
     };
@@ -64,18 +61,6 @@ export default function NewClientPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <FormField label="Name" htmlFor="name" required>
             <Input id="name" name="name" required />
-          </FormField>
-
-          <FormField label="Contact Name" htmlFor="contactName">
-            <Input id="contactName" name="contactName" />
-          </FormField>
-
-          <FormField label="Contact Email" htmlFor="contactEmail">
-            <Input id="contactEmail" name="contactEmail" type="email" />
-          </FormField>
-
-          <FormField label="Contact Phone" htmlFor="contactPhone">
-            <Input id="contactPhone" name="contactPhone" type="tel" />
           </FormField>
 
           <FormField label="Address" htmlFor="address">

@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ApiListResponse, Client } from "@interface/shared";
+import type {
+  ApiListResponse,
+  ClientWithPrimaryContact,
+} from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
@@ -16,12 +19,12 @@ import {
 
 export default function ClientsPage() {
   const { authenticated } = useRequireAuth();
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientWithPrimaryContact[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authenticated) return;
-    api<ApiListResponse<Client>>("/clients")
+    api<ApiListResponse<ClientWithPrimaryContact>>("/clients")
       .then((res) => setClients(res.data))
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load clients"),
@@ -51,9 +54,15 @@ export default function ClientsPage() {
               >
                 <Card>
                   <h2 className="font-semibold">{client.name}</h2>
-                  {client.contactName && (
+                  {client.primaryContact && (
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {client.contactName}
+                      {client.primaryContact.name}
+                      {client.primaryContact.title && (
+                        <span className="text-gray-400 dark:text-gray-500">
+                          {" "}
+                          · {client.primaryContact.title}
+                        </span>
+                      )}
                     </p>
                   )}
                 </Card>

@@ -1,9 +1,6 @@
 export interface Client {
   id: string;
   name: string;
-  contactName: string | null;
-  contactEmail: string | null;
-  contactPhone: string | null;
   address: string | null;
   notes: string | null;
   qboCustomerId: string | null;
@@ -11,11 +8,17 @@ export interface Client {
   updatedAt: string;
 }
 
+export interface ClientWithPrimaryContact extends Client {
+  primaryContact: {
+    id: string;
+    name: string;
+    email: string | null;
+    title: string | null;
+  } | null;
+}
+
 export interface CreateClientDto {
   name: string;
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
   address?: string;
   notes?: string;
 }

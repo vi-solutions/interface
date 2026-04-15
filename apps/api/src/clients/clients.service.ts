@@ -4,6 +4,7 @@ import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
 import type {
   Client,
+  ClientWithPrimaryContact,
   CreateClientDto,
   UpdateClientDto,
 } from "@interface/shared";
@@ -12,21 +13,31 @@ import type {
 export class ClientsService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
-  async findAll(): Promise<Client[]> {
+  async findAll(): Promise<ClientWithPrimaryContact[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, name, contact_name AS "contactName", contact_email AS "contactEmail",
-              contact_phone AS "contactPhone", address, notes,
-              qbo_customer_id AS "qboCustomerId",
-              created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM clients ORDER BY name`,
+      `SELECT c.id, c.name, c.address, c.notes,
+              c.qbo_customer_id AS "qboCustomerId",
+              c.created_at AS "createdAt", c.updated_at AS "updatedAt",
+              CASE WHEN pc.id IS NOT NULL
+                THEN json_build_object('id', pc.id, 'name', pc.name, 'email', pc.email, 'title', pc.title)
+                ELSE NULL
+              END AS "primaryContact"
+       FROM clients c
+       LEFT JOIN LATERAL (
+         SELECT id, name, email, title
+         FROM contacts
+         WHERE client_id = c.id
+         ORDER BY created_at ASC
+         LIMIT 1
+       ) pc ON true
+       ORDER BY c.name`,
     );
     return rows;
   }
 
   async findById(id: string): Promise<Client> {
     const { rows } = await this.pool.query(
-      `SELECT id, name, contact_name AS "contactName", contact_email AS "contactEmail",
-              contact_phone AS "contactPhone", address, notes,
+      `SELECT id, name, address, notes,
               qbo_customer_id AS "qboCustomerId",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM clients WHERE id = $1`,
@@ -39,21 +50,12 @@ export class ClientsService {
   async create(dto: CreateClientDto): Promise<Client> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO clients (id, name, contact_name, contact_email, contact_phone, address, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, contact_name AS "contactName", contact_email AS "contactEmail",
-                 contact_phone AS "contactPhone", address, notes,
+      `INSERT INTO clients (id, name, address, notes)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, address, notes,
                  qbo_customer_id AS "qboCustomerId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
-      [
-        id,
-        dto.name,
-        dto.contactName ?? null,
-        dto.contactEmail ?? null,
-        dto.contactPhone ?? null,
-        dto.address ?? null,
-        dto.notes ?? null,
-      ],
+      [id, dto.name, dto.address ?? null, dto.notes ?? null],
     );
     return rows[0];
   }
@@ -61,21 +63,16 @@ export class ClientsService {
   async update(id: string, dto: UpdateClientDto): Promise<Client> {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
-      `UPDATE clients SET name = $2, contact_name = $3, contact_email = $4,
-              contact_phone = $5, address = $6, notes = $7, updated_at = NOW()
+      `UPDATE clients SET name = $2, address = $3, notes = $4, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, name, contact_name AS "contactName", contact_email AS "contactEmail",
-                 contact_phone AS "contactPhone", address, notes,
+       RETURNING id, name, address, notes,
                  qbo_customer_id AS "qboCustomerId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.name ?? existing.name,
-        dto.contactName ?? existing.contactName,
-        dto.contactEmail ?? existing.contactEmail,
-        dto.contactPhone ?? existing.contactPhone,
-        dto.address ?? existing.address,
-        dto.notes ?? existing.notes,
+        dto.address !== undefined ? dto.address || null : existing.address,
+        dto.notes !== undefined ? dto.notes || null : existing.notes,
       ],
     );
     return rows[0];
@@ -88,8 +85,7 @@ export class ClientsService {
     const { rows } = await this.pool.query(
       `UPDATE clients SET qbo_customer_id = $2, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, name, contact_name AS "contactName", contact_email AS "contactEmail",
-                 contact_phone AS "contactPhone", address, notes,
+       RETURNING id, name, address, notes,
                  qbo_customer_id AS "qboCustomerId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [id, qboCustomerId],

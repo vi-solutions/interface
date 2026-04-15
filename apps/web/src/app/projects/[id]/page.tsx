@@ -10,7 +10,6 @@ import type {
   TimeEntryWithUser,
   CreateTimeEntryDto,
   DocumentWithDetails,
-  CreateDocumentDto,
   UserExpenseWithDetails,
   CreateUserExpenseDto,
   ProjectExpense,
@@ -38,8 +37,6 @@ export default function ProjectDetailPage() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
-  const [showDocForm, setShowDocForm] = useState(false);
-  const [savingDoc, setSavingDoc] = useState(false);
   const [userExpenses, setUserExpenses] = useState<UserExpenseWithDetails[]>(
     [],
   );
@@ -255,36 +252,6 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function handleDocSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSavingDoc(true);
-
-    const form = new FormData(e.currentTarget);
-    const dto: CreateDocumentDto = {
-      projectId: id,
-      name: form.get("docName") as string,
-      googleDriveUrl: form.get("googleDriveUrl") as string,
-      category: (form.get("category") as string) || undefined,
-    };
-
-    try {
-      await api<ApiResponse<DocumentWithDetails>>("/documents", {
-        method: "POST",
-        body: JSON.stringify(dto),
-      });
-      addToast("Document linked");
-      setShowDocForm(false);
-      loadDocuments();
-    } catch (err) {
-      addToast(
-        err instanceof Error ? err.message : "Failed to add document",
-        "error",
-      );
-    } finally {
-      setSavingDoc(false);
-    }
-  }
-
   async function handleDocDelete(docId: string) {
     try {
       await api(`/documents/${docId}`, { method: "DELETE" });
@@ -383,19 +350,6 @@ export default function ProjectDetailPage() {
                   </h3>
                   <p className="mt-1">
                     {new Date(project.endDate).toLocaleDateString()}
-                  </p>
-                </div>
-              )}
-              {project.budgetCents != null && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Budget
-                  </h3>
-                  <p className="mt-1">
-                    $
-                    {(project.budgetCents / 100).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                    })}
                   </p>
                 </div>
               )}
@@ -592,74 +546,7 @@ export default function ProjectDetailPage() {
 
             {/* ── Documents ────────────────────────────────────── */}
             <section className="mb-10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Documents</h2>
-                <button
-                  onClick={() => setShowDocForm((v) => !v)}
-                  className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
-                >
-                  {showDocForm ? "Cancel" : "+ Link Document"}
-                </button>
-              </div>
-
-              {showDocForm && (
-                <form
-                  onSubmit={handleDocSubmit}
-                  className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
-                >
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Document Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="docName"
-                      required
-                      placeholder="e.g. Site Assessment Report"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Category
-                    </label>
-                    <select
-                      name="category"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    >
-                      <option value="">None</option>
-                      {DOCUMENT_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium mb-1">
-                      Google Drive URL <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="googleDriveUrl"
-                      type="url"
-                      required
-                      placeholder="https://drive.google.com/file/d/..."
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <button
-                      type="submit"
-                      disabled={savingDoc}
-                      className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                    >
-                      {savingDoc ? "Linking…" : "Link Document"}
-                    </button>
-                  </div>
-                </form>
-              )}
+              <h2 className="text-lg font-semibold mb-4">Documents</h2>
 
               {/* Upload dropzones per category */}
               {project.code && (

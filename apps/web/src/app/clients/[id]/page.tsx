@@ -214,46 +214,18 @@ export default function ClientDetailPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 mb-8">
-              {client.contactName && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Contact
-                  </h3>
-                  <p className="mt-1">{client.contactName}</p>
-                </div>
-              )}
-              {client.contactEmail && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Email
-                  </h3>
-                  <p className="mt-1">{client.contactEmail}</p>
-                </div>
-              )}
-              {client.contactPhone && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Phone
-                  </h3>
-                  <p className="mt-1">{client.contactPhone}</p>
-                </div>
-              )}
-              {client.address && (
-                <div>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Address
-                  </h3>
-                  <p className="mt-1">{client.address}</p>
-                </div>
-              )}
-              {client.notes && (
-                <div className="sm:col-span-2">
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Notes
-                  </h3>
-                  <p className="mt-1">{client.notes}</p>
-                </div>
-              )}
+              <div>
+                <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Address
+                </h3>
+                {<p className="mt-1">{client.address ?? "-"}</p>}
+              </div>
+              <div className="sm:col-span-2">
+                <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Notes
+                </h3>
+                {<p className="mt-1">{client.notes ?? "-"}</p>}
+              </div>
             </div>
 
             {/* ── QuickBooks Linking ── */}

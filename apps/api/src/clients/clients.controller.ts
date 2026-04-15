@@ -14,6 +14,7 @@ import type {
   ApiResponse,
   ApiListResponse,
   Client,
+  ClientWithPrimaryContact,
 } from "@interface/shared";
 
 @Controller("clients")
@@ -21,7 +22,7 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
-  async findAll(): Promise<ApiListResponse<Client>> {
+  async findAll(): Promise<ApiListResponse<ClientWithPrimaryContact>> {
     const data = await this.clientsService.findAll();
     return { data, total: data.length };
   }

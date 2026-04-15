@@ -23,13 +23,21 @@ export default function EditClientPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const [client, setClient] = useState<Client | null>(null);
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!authenticated) return;
     api<ApiResponse<Client>>(`/clients/${id}`)
-      .then((res) => setClient(res.data))
+      .then((res) => {
+        setClient(res.data);
+        setName(res.data.name);
+        setAddress(res.data.address ?? "");
+        setNotes(res.data.notes ?? "");
+      })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load client"),
       );
@@ -42,14 +50,10 @@ export default function EditClientPage() {
     setError(null);
     setSaving(true);
 
-    const form = new FormData(e.currentTarget);
     const dto: UpdateClientDto = {
-      name: form.get("name") as string,
-      contactName: (form.get("contactName") as string) || undefined,
-      contactEmail: (form.get("contactEmail") as string) || undefined,
-      contactPhone: (form.get("contactPhone") as string) || undefined,
-      address: (form.get("address") as string) || undefined,
-      notes: (form.get("notes") as string) || undefined,
+      name,
+      address: address || null,
+      notes: notes || null,
     };
 
     try {
@@ -93,33 +97,8 @@ export default function EditClientPage() {
                 id="name"
                 name="name"
                 required
-                defaultValue={client.name}
-              />
-            </FormField>
-
-            <FormField label="Contact Name" htmlFor="contactName">
-              <Input
-                id="contactName"
-                name="contactName"
-                defaultValue={client.contactName ?? ""}
-              />
-            </FormField>
-
-            <FormField label="Contact Email" htmlFor="contactEmail">
-              <Input
-                id="contactEmail"
-                name="contactEmail"
-                type="email"
-                defaultValue={client.contactEmail ?? ""}
-              />
-            </FormField>
-
-            <FormField label="Contact Phone" htmlFor="contactPhone">
-              <Input
-                id="contactPhone"
-                name="contactPhone"
-                type="tel"
-                defaultValue={client.contactPhone ?? ""}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
             </FormField>
 
@@ -127,7 +106,8 @@ export default function EditClientPage() {
               <Input
                 id="address"
                 name="address"
-                defaultValue={client.address ?? ""}
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
               />
             </FormField>
 
@@ -136,7 +116,8 @@ export default function EditClientPage() {
                 id="notes"
                 name="notes"
                 rows={3}
-                defaultValue={client.notes ?? ""}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
               />
             </FormField>
 

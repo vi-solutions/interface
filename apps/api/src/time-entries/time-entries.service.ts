@@ -18,7 +18,31 @@ export class TimeEntriesService {
     private readonly qboSync: QboSyncService,
   ) {}
 
-  async findRecent(limit = 50): Promise<TimeEntryWithDetails[]> {
+  async findRecent(
+    opts: { limit?: number; startDate?: string; endDate?: string } = {},
+  ): Promise<TimeEntryWithDetails[]> {
+    const { limit = 50, startDate, endDate } = opts;
+    const params: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (startDate) {
+      params.push(startDate);
+      conditions.push(`t.date >= $${params.length}`);
+    }
+    if (endDate) {
+      params.push(endDate);
+      conditions.push(`t.date <= $${params.length}`);
+    }
+
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    // Only apply row limit when no date range is specified
+    const limitClause =
+      !startDate && !endDate
+        ? `LIMIT $${params.push(limit) && params.length}`
+        : "";
+
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
               t.milestone_id AS "milestoneId",
@@ -37,9 +61,10 @@ export class TimeEntriesService {
        LEFT JOIN milestones m ON m.id = t.milestone_id
        LEFT JOIN project_time_categories ptc ON ptc.id = t.project_time_category_id
        LEFT JOIN time_categories tc ON tc.id = ptc.time_category_id
+       ${where}
        ORDER BY t.date DESC, t.created_at DESC
-       LIMIT $1`,
-      [limit],
+       ${limitClause}`,
+      params,
     );
     return rows;
   }
