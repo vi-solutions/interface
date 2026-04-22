@@ -13,8 +13,7 @@ import { UserExpensesModule } from "./user-expenses/user-expenses.module";
 import { MilestonesModule } from "./milestones/milestones.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { ProjectContactsModule } from "./project-contacts/project-contacts.module";
-import { TimeCategoriesModule } from "./time-categories/time-categories.module";
-import { ProjectTimeCategoriesModule } from "./project-time-categories/project-time-categories.module";
+import { TasksModule } from "./tasks/tasks.module";
 import { ProjectUserRatesModule } from "./project-user-rates/project-user-rates.module";
 import { QuickbooksModule } from "./quickbooks/quickbooks.module";
 import { GoogleDriveModule } from "./google-drive/google-drive.module";
@@ -35,8 +34,7 @@ import { AuthGuard } from "./auth/auth.guard";
     MilestonesModule,
     ContactsModule,
     ProjectContactsModule,
-    TimeCategoriesModule,
-    ProjectTimeCategoriesModule,
+    TasksModule,
     ProjectUserRatesModule,
     QuickbooksModule,
     GoogleDriveModule,

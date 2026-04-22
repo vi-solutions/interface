@@ -9,8 +9,7 @@ import type {
   TimeEntryWithDetails,
   CreateTimeEntryDto,
   User,
-  Milestone,
-  ProjectTimeCategory,
+  Task,
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -26,10 +25,7 @@ export default function TimePage() {
   const [entries, setEntries] = useState<TimeEntryWithDetails[]>([]);
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [timeCategories, setTimeCategories] = useState<ProjectTimeCategory[]>(
-    [],
-  );
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -52,20 +48,12 @@ export default function TimePage() {
 
   useEffect(() => {
     if (!selectedProjectId) {
-      setMilestones([]);
-      setTimeCategories([]);
+      setTasks([]);
       return;
     }
-    api<ApiListResponse<Milestone>>(
-      `/milestones?projectId=${selectedProjectId}`,
-    )
-      .then((res) => setMilestones(res.data))
-      .catch(() => setMilestones([]));
-    api<ApiListResponse<ProjectTimeCategory>>(
-      `/project-time-categories?projectId=${selectedProjectId}`,
-    )
-      .then((res) => setTimeCategories(res.data))
-      .catch(() => setTimeCategories([]));
+    api<ApiListResponse<Task>>(`/tasks?projectId=${selectedProjectId}`)
+      .then((res) => setTasks(res.data))
+      .catch(() => setTasks([]));
   }, [selectedProjectId]);
 
   if (!authenticated) return null;
@@ -97,9 +85,7 @@ export default function TimePage() {
       hours: parseFloat(form.get("hours") as string),
       description: (form.get("description") as string) || undefined,
       billable: form.get("billable") === "on",
-      milestoneId: (form.get("milestoneId") as string) || undefined,
-      projectTimeCategoryId:
-        (form.get("projectTimeCategoryId") as string) || undefined,
+      taskId: (form.get("taskId") as string) || undefined,
     };
 
     try {
@@ -110,7 +96,7 @@ export default function TimePage() {
       addToast("Time entry logged");
       (e.target as HTMLFormElement).reset();
       setSelectedProjectId("");
-      setTimeCategories([]);
+      setTasks([]);
       loadEntries();
     } catch (err) {
       addToast(
@@ -181,38 +167,17 @@ export default function TimePage() {
               </select>
             </div>
 
-            {milestones.length > 0 && (
+            {tasks.length > 0 && (
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Milestone
-                </label>
+                <label className="block text-sm font-medium mb-1">Task</label>
                 <select
-                  name="milestoneId"
+                  name="taskId"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
-                  <option value="">None</option>
-                  {milestones.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {timeCategories.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Category
-                </label>
-                <select
-                  name="projectTimeCategoryId"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                >
-                  <option value="">None</option>
-                  {timeCategories.map((tc) => (
-                    <option key={tc.id} value={tc.id}>
-                      {tc.name}
+                  <option value="">No task</option>
+                  {tasks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
@@ -357,14 +322,9 @@ export default function TimePage() {
                             </p>
                           )}
                         </div>
-                        {entry.milestone && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-                            {entry.milestone.name}
-                          </span>
-                        )}
-                        {entry.timeCategory && (
+                        {entry.task && (
                           <span className="text-xs text-emerald-700 dark:text-emerald-300 whitespace-nowrap bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded">
-                            {entry.timeCategory.name}
+                            {entry.task.name}
                           </span>
                         )}
                         <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">

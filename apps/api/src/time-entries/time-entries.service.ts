@@ -45,22 +45,18 @@ export class TimeEntriesService {
 
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
-              t.milestone_id AS "milestoneId",
-              t.project_time_category_id AS "projectTimeCategoryId",
+              t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
               t.qbo_time_activity_id AS "qboTimeActivityId",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               json_build_object('id', p.id, 'name', p.name) AS project,
-              CASE WHEN m.id IS NOT NULL THEN json_build_object('id', m.id, 'name', m.name) ELSE NULL END AS milestone,
-              CASE WHEN ptc.id IS NOT NULL THEN json_build_object('id', ptc.id, 'name', COALESCE(ptc.name, tc.name)) ELSE NULL END AS "timeCategory"
+              CASE WHEN tk.id IS NOT NULL THEN json_build_object('id', tk.id, 'name', tk.name) ELSE NULL END AS task
        FROM time_entries t
        JOIN users u ON u.id = t.user_id
        JOIN projects p ON p.id = t.project_id
-       LEFT JOIN milestones m ON m.id = t.milestone_id
-       LEFT JOIN project_time_categories ptc ON ptc.id = t.project_time_category_id
-       LEFT JOIN time_categories tc ON tc.id = ptc.time_category_id
+       LEFT JOIN tasks tk ON tk.id = t.task_id
        ${where}
        ORDER BY t.date DESC, t.created_at DESC
        ${limitClause}`,
@@ -72,20 +68,16 @@ export class TimeEntriesService {
   async findByProject(projectId: string): Promise<TimeEntryWithUser[]> {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
-              t.milestone_id AS "milestoneId",
-              t.project_time_category_id AS "projectTimeCategoryId",
+              t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
               t.qbo_time_activity_id AS "qboTimeActivityId",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
-              CASE WHEN m.id IS NOT NULL THEN json_build_object('id', m.id, 'name', m.name) ELSE NULL END AS milestone,
-              CASE WHEN ptc.id IS NOT NULL THEN json_build_object('id', ptc.id, 'name', COALESCE(ptc.name, tc.name)) ELSE NULL END AS "timeCategory"
+              CASE WHEN tk.id IS NOT NULL THEN json_build_object('id', tk.id, 'name', tk.name) ELSE NULL END AS task
        FROM time_entries t
        JOIN users u ON u.id = t.user_id
-       LEFT JOIN milestones m ON m.id = t.milestone_id
-       LEFT JOIN project_time_categories ptc ON ptc.id = t.project_time_category_id
-       LEFT JOIN time_categories tc ON tc.id = ptc.time_category_id
+       LEFT JOIN tasks tk ON tk.id = t.task_id
        WHERE t.project_id = $1 ORDER BY t.date DESC`,
       [projectId],
     );
@@ -95,8 +87,7 @@ export class TimeEntriesService {
   async findById(id: string): Promise<TimeEntry> {
     const { rows } = await this.pool.query(
       `SELECT id, project_id AS "projectId", user_id AS "userId",
-              milestone_id AS "milestoneId",
-              project_time_category_id AS "projectTimeCategoryId",
+              task_id AS "taskId",
               date, hours,
               description, billable,
               qbo_time_activity_id AS "qboTimeActivityId",
@@ -111,11 +102,10 @@ export class TimeEntriesService {
   async create(dto: CreateTimeEntryDto): Promise<TimeEntry> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO time_entries (id, project_id, user_id, milestone_id, project_time_category_id, date, hours, description, billable)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO time_entries (id, project_id, user_id, task_id, date, hours, description, billable)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, project_id AS "projectId", user_id AS "userId",
-                 milestone_id AS "milestoneId",
-                 project_time_category_id AS "projectTimeCategoryId",
+                 task_id AS "taskId",
                  date, hours,
                  description, billable,
                  qbo_time_activity_id AS "qboTimeActivityId",
@@ -124,8 +114,7 @@ export class TimeEntriesService {
         id,
         dto.projectId,
         dto.userId,
-        dto.milestoneId ?? null,
-        dto.projectTimeCategoryId ?? null,
+        dto.taskId ?? null,
         dto.date,
         dto.hours,
         dto.description ?? null,
@@ -140,13 +129,11 @@ export class TimeEntriesService {
   async update(id: string, dto: UpdateTimeEntryDto): Promise<TimeEntry> {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
-      `UPDATE time_entries SET project_id = $2, user_id = $3, milestone_id = $4,
-              project_time_category_id = $5,
-              date = $6, hours = $7, description = $8, billable = $9, updated_at = NOW()
+      `UPDATE time_entries SET project_id = $2, user_id = $3, task_id = $4,
+              date = $5, hours = $6, description = $7, billable = $8, updated_at = NOW()
        WHERE id = $1
        RETURNING id, project_id AS "projectId", user_id AS "userId",
-                 milestone_id AS "milestoneId",
-                 project_time_category_id AS "projectTimeCategoryId",
+                 task_id AS "taskId",
                  date, hours,
                  description, billable,
                  qbo_time_activity_id AS "qboTimeActivityId",
@@ -155,10 +142,7 @@ export class TimeEntriesService {
         id,
         dto.projectId ?? existing.projectId,
         dto.userId ?? existing.userId,
-        dto.milestoneId !== undefined ? dto.milestoneId : existing.milestoneId,
-        dto.projectTimeCategoryId !== undefined
-          ? dto.projectTimeCategoryId
-          : existing.projectTimeCategoryId,
+        dto.taskId !== undefined ? dto.taskId : existing.taskId,
         dto.date ?? existing.date,
         dto.hours ?? existing.hours,
         dto.description ?? existing.description,

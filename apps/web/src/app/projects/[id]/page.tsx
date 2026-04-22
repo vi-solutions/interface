@@ -15,7 +15,7 @@ import type {
   ProjectExpense,
   Milestone,
   ProjectContactWithDetails,
-  ProjectTimeCategory,
+  Task,
   ProjectUserRateWithUser,
   User,
 } from "@interface/shared";
@@ -47,9 +47,7 @@ export default function ProjectDetailPage() {
   const [projectContacts, setProjectContacts] = useState<
     ProjectContactWithDetails[]
   >([]);
-  const [timeCategories, setTimeCategories] = useState<ProjectTimeCategory[]>(
-    [],
-  );
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [projectUserRates, setProjectUserRates] = useState<
     ProjectUserRateWithUser[]
   >([]);
@@ -95,10 +93,8 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   const loadTimeCategories = useCallback(() => {
-    api<ApiListResponse<ProjectTimeCategory>>(
-      `/project-time-categories?projectId=${id}`,
-    )
-      .then((res) => setTimeCategories(res.data))
+    api<ApiListResponse<Task>>(`/tasks?projectId=${id}`)
+      .then((res) => setTasks(res.data))
       .catch(() => {});
   }, [id]);
 
@@ -162,13 +158,13 @@ export default function ProjectDetailPage() {
     0,
   );
 
-  // Group entries by milestone for the budget summary
-  const byMilestone = entries.reduce<
+  // Group entries by task for the hour summary
+  const byTask = entries.reduce<
     Record<string, { name: string; hours: number }>
   >((acc, entry) => {
-    const key = entry.milestone?.id ?? "_none";
+    const key = entry.task?.id ?? "_none";
     if (!acc[key]) {
-      acc[key] = { name: entry.milestone?.name ?? "Unassigned", hours: 0 };
+      acc[key] = { name: entry.task?.name ?? "No Task", hours: 0 };
     }
     acc[key].hours += Number(entry.hours);
     return acc;
@@ -215,9 +211,7 @@ export default function ProjectDetailPage() {
       userId: currentUser?.isAdmin
         ? (form.get("userId") as string)
         : (currentUser?.id ?? ""),
-      milestoneId: (form.get("milestoneId") as string) || undefined,
-      projectTimeCategoryId:
-        (form.get("projectTimeCategoryId") as string) || undefined,
+      taskId: (form.get("taskId") as string) || undefined,
       date: form.get("date") as string,
       hours: parseFloat(form.get("hours") as string),
       description: (form.get("description") as string) || undefined,
@@ -468,76 +462,64 @@ export default function ProjectDetailPage() {
                 {/* Milestone time budget bars */}
                 {milestones.length > 0 && (
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-                      Milestone Time Budgets
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                      Milestones
                     </h3>
-                    <div className="space-y-4">
-                      {milestones.map((m) => {
-                        const logged = byMilestone[m.id]?.hours ?? 0;
-                        const budget =
-                          m.budgetHours != null ? Number(m.budgetHours) : null;
-                        const pct =
-                          budget && budget > 0
-                            ? Math.min((logged / budget) * 100, 100)
-                            : null;
-                        const over = budget != null && logged > budget;
-                        const overPct =
-                          budget && budget > 0 && logged > budget
-                            ? Math.min(((logged - budget) / budget) * 100, 50)
-                            : 0;
-                        return (
-                          <div key={m.id}>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-sm font-medium truncate mr-3">
-                                {m.name}
-                              </span>
-                              <span className="text-sm tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {logged.toFixed(1)}h
-                                {budget != null && (
-                                  <span className="text-gray-400 dark:text-gray-500">
-                                    {" / "}
-                                    {budget}h
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                            {budget != null && budget > 0 ? (
-                              <div className="relative h-3 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                                <div
-                                  className={`absolute inset-y-0 left-0 rounded-full transition-all ${
-                                    over
-                                      ? "bg-red-500 dark:bg-red-400"
-                                      : pct != null && pct >= 80
-                                        ? "bg-amber-500 dark:bg-amber-400"
-                                        : "bg-emerald-500 dark:bg-emerald-400"
-                                  }`}
-                                  style={{
-                                    width: `${over ? 100 : (pct ?? 0)}%`,
-                                  }}
+                    <div className="space-y-2">
+                      {milestones.map((m) => (
+                        <div key={m.id} className="flex items-center gap-3">
+                          <button
+                            onClick={async () => {
+                              await api(`/milestones/${m.id}`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  completed: !m.completed,
+                                }),
+                              });
+                              setMilestones((prev) =>
+                                prev.map((ms) =>
+                                  ms.id === m.id
+                                    ? { ...ms, completed: !ms.completed }
+                                    : ms,
+                                ),
+                              );
+                            }}
+                            className={`flex-shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${
+                              m.completed
+                                ? "bg-emerald-500 border-emerald-500"
+                                : "border-gray-300 dark:border-gray-600 hover:border-emerald-400"
+                            }`}
+                            aria-label={
+                              m.completed ? "Mark incomplete" : "Mark complete"
+                            }
+                          >
+                            {m.completed && (
+                              <svg
+                                className="h-3 w-3 text-white"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M2 6l3 3 5-5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
                                 />
-                                {over && overPct > 0 && (
-                                  <div
-                                    className="absolute inset-y-0 right-0 bg-red-300/40 dark:bg-red-400/20 rounded-r-full"
-                                    style={{ width: `${overPct}%` }}
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div className="h-3 rounded-full bg-gray-100 dark:bg-gray-700">
-                                <div
-                                  className="h-full rounded-full bg-gray-300 dark:bg-gray-500"
-                                  style={{ width: "100%" }}
-                                />
-                              </div>
+                              </svg>
                             )}
-                            {over && budget != null && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                                {(logged - budget).toFixed(1)}h over budget
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                          </button>
+                          <span
+                            className={`text-sm ${
+                              m.completed
+                                ? "line-through text-gray-400 dark:text-gray-500"
+                                : ""
+                            }`}
+                          >
+                            {m.name}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -922,40 +904,20 @@ export default function ProjectDetailPage() {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Milestone <span className="text-red-500">*</span>
+                      Task
                     </label>
                     <select
-                      name="milestoneId"
-                      required
+                      name="taskId"
                       className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     >
-                      <option value="">Select milestone…</option>
-                      {milestones.map((ms) => (
-                        <option key={ms.id} value={ms.id}>
-                          {ms.name}
+                      <option value="">No task</option>
+                      {tasks.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
                         </option>
                       ))}
                     </select>
                   </div>
-
-                  {timeCategories.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Category
-                      </label>
-                      <select
-                        name="projectTimeCategoryId"
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      >
-                        <option value="">None</option>
-                        {timeCategories.map((tc) => (
-                          <option key={tc.id} value={tc.id}>
-                            {tc.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
@@ -1068,14 +1030,14 @@ export default function ProjectDetailPage() {
                 </div>
               )}
 
-              {/* ── Summary by Milestone ── */}
-              {milestones.length > 0 && entries.length > 0 && (
+              {/* ── Summary by Task ── */}
+              {tasks.length > 0 && entries.length > 0 && (
                 <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                         <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Milestone
+                          Task
                         </th>
                         <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                           Logged
@@ -1089,18 +1051,18 @@ export default function ProjectDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {milestones.map((m) => {
-                        const logged = byMilestone[m.id]?.hours ?? 0;
+                      {tasks.map((t) => {
+                        const logged = byTask[t.id]?.hours ?? 0;
                         const budget =
-                          m.budgetHours != null ? Number(m.budgetHours) : null;
+                          t.budgetHours != null ? Number(t.budgetHours) : null;
                         const remaining =
                           budget != null ? budget - logged : null;
                         return (
                           <tr
-                            key={m.id}
+                            key={t.id}
                             className="border-b border-gray-100 dark:border-gray-700/50"
                           >
-                            <td className="px-4 py-2.5">{m.name}</td>
+                            <td className="px-4 py-2.5">{t.name}</td>
                             <td className="px-4 py-2.5 text-right tabular-nums">
                               {logged.toFixed(2)}
                             </td>
@@ -1119,13 +1081,13 @@ export default function ProjectDetailPage() {
                           </tr>
                         );
                       })}
-                      {byMilestone["_none"] && (
+                      {byTask["_none"] && (
                         <tr className="border-b border-gray-100 dark:border-gray-700/50">
                           <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 italic">
-                            Unassigned
+                            No Task
                           </td>
                           <td className="px-4 py-2.5 text-right tabular-nums">
-                            {byMilestone["_none"].hours.toFixed(2)}
+                            {byTask["_none"].hours.toFixed(2)}
                           </td>
                           <td className="px-4 py-2.5 text-right tabular-nums">
                             —
@@ -1154,10 +1116,7 @@ export default function ProjectDetailPage() {
                           Date
                         </th>
                         <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Milestone
-                        </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Category
+                          Task
                         </th>
                         <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                           Employee
@@ -1186,10 +1145,7 @@ export default function ProjectDetailPage() {
                             {new Date(entry.date).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                            {entry.milestone?.name || "—"}
-                          </td>
-                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                            {entry.timeCategory?.name || "—"}
+                            {entry.task?.name || "—"}
                           </td>
                           <td className="px-4 py-2.5">{entry.user.name}</td>
                           <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">

@@ -34,6 +34,8 @@ export interface ProjectUserRate {
   userId: string;
   hourlyRateCents: number | null;
   dailyRateCents: number | null;
+  budgetHours: number | null;
+  budgetCents: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,9 +49,13 @@ export interface CreateProjectUserRateDto {
   userId: string;
   hourlyRateCents?: number;
   dailyRateCents?: number;
+  budgetHours?: number;
+  budgetCents?: number;
 }
 
 export interface UpdateProjectUserRateDto {
   hourlyRateCents?: number | null;
   dailyRateCents?: number | null;
+  budgetHours?: number | null;
+  budgetCents?: number | null;
 }

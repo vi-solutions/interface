@@ -22,6 +22,7 @@ export interface Project {
   startDate: string | null;
   endDate: string | null;
   budgetCents: number | null;
+  budgetHours: number | null;
   projectManagerId: string | null;
   googleDriveFolderId: string | null;
   createdAt: string;
@@ -38,6 +39,7 @@ export interface CreateProjectDto {
   startDate?: string;
   endDate?: string;
   budgetCents?: number;
+  budgetHours?: number;
   projectManagerId?: string;
 }
 

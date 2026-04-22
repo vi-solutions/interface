@@ -8,6 +8,6 @@ export * from "./types/api";
 export * from "./types/expense";
 export * from "./types/milestone";
 export * from "./types/contact";
-export * from "./types/time-category";
+export * from "./types/task";
 export * from "./types/quickbooks";
 export * from "./types/google-drive";

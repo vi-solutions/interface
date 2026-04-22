@@ -17,7 +17,7 @@ export class ProjectsService {
     const { rows } = await this.pool.query(
       `SELECT p.id, p.client_id AS "clientId", p.name, p.code, p.description, p.status, p.phase,
               p.start_date AS "startDate", p.end_date AS "endDate",
-              p.budget_cents AS "budgetCents",
+              p.budget_cents AS "budgetCents", p.budget_hours AS "budgetHours",
               p.project_manager_id AS "projectManagerId",
               p.google_drive_folder_id AS "googleDriveFolderId",
               p.created_at AS "createdAt", p.updated_at AS "updatedAt",
@@ -35,7 +35,7 @@ export class ProjectsService {
     const { rows } = await this.pool.query(
       `SELECT p.id, p.client_id AS "clientId", p.name, p.code, p.description, p.status, p.phase,
               p.start_date AS "startDate", p.end_date AS "endDate",
-              p.budget_cents AS "budgetCents",
+              p.budget_cents AS "budgetCents", p.budget_hours AS "budgetHours",
               p.project_manager_id AS "projectManagerId",
               p.google_drive_folder_id AS "googleDriveFolderId",
               p.created_at AS "createdAt", p.updated_at AS "updatedAt",
@@ -54,11 +54,11 @@ export class ProjectsService {
   async create(dto: CreateProjectDto): Promise<Project> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO projects (id, client_id, name, code, description, status, phase, start_date, end_date, budget_cents, project_manager_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO projects (id, client_id, name, code, description, status, phase, start_date, end_date, budget_cents, budget_hours, project_manager_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, client_id AS "clientId", name, code, description, status, phase,
                  start_date AS "startDate", end_date AS "endDate",
-                 budget_cents AS "budgetCents",
+                 budget_cents AS "budgetCents", budget_hours AS "budgetHours",
                  project_manager_id AS "projectManagerId",
                  google_drive_folder_id AS "googleDriveFolderId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
@@ -73,6 +73,7 @@ export class ProjectsService {
         dto.startDate ?? null,
         dto.endDate ?? null,
         dto.budgetCents ?? null,
+        dto.budgetHours ?? null,
         dto.projectManagerId ?? null,
       ],
     );
@@ -83,12 +84,12 @@ export class ProjectsService {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
       `UPDATE projects SET client_id = $2, name = $3, code = $4, description = $5, status = $6,
-              phase = $7, start_date = $8, end_date = $9, budget_cents = $10,
-              project_manager_id = $11, updated_at = NOW()
+              phase = $7, start_date = $8, end_date = $9, budget_cents = $10, budget_hours = $11,
+              project_manager_id = $12, updated_at = NOW()
        WHERE id = $1
        RETURNING id, client_id AS "clientId", name, code, description, status, phase,
                  start_date AS "startDate", end_date AS "endDate",
-                 budget_cents AS "budgetCents",
+                 budget_cents AS "budgetCents", budget_hours AS "budgetHours",
                  project_manager_id AS "projectManagerId",
                  google_drive_folder_id AS "googleDriveFolderId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
@@ -103,6 +104,7 @@ export class ProjectsService {
         dto.startDate ?? existing.startDate,
         dto.endDate ?? existing.endDate,
         dto.budgetCents ?? existing.budgetCents,
+        dto.budgetHours !== undefined ? dto.budgetHours : existing.budgetHours,
         dto.projectManagerId !== undefined
           ? dto.projectManagerId || null
           : existing.projectManagerId,

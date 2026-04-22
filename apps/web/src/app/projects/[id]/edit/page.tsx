@@ -20,9 +20,8 @@ import type {
   CreateMilestoneDto,
   Contact,
   ProjectContactWithDetails,
-  ProjectTimeCategory,
-  CreateProjectTimeCategoryDto,
-  TimeCategory,
+  Task,
+  CreateTaskDto,
   ProjectUserRateWithUser,
   CreateProjectUserRateDto,
 } from "@interface/shared";
@@ -66,23 +65,14 @@ export default function EditProjectPage() {
     null,
   );
   const [editingMilestoneName, setEditingMilestoneName] = useState("");
-  const [editingMilestoneBudget, setEditingMilestoneBudget] = useState("");
   const [projectContacts, setProjectContacts] = useState<
     ProjectContactWithDetails[]
   >([]);
   const [clientContacts, setClientContacts] = useState<Contact[]>([]);
   const [savingContact, setSavingContact] = useState(false);
-  const [projectTimeCategories, setProjectTimeCategories] = useState<
-    ProjectTimeCategory[]
-  >([]);
-  const [showTimeCatForm, setShowTimeCatForm] = useState(false);
-  const [savingTimeCat, setSavingTimeCat] = useState(false);
-  const [globalTimeCategories, setGlobalTimeCategories] = useState<
-    TimeCategory[]
-  >([]);
-  const [timeCatMode, setTimeCatMode] = useState<"existing" | "custom">(
-    "existing",
-  );
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
   const [projectUserRates, setProjectUserRates] = useState<
     ProjectUserRateWithUser[]
   >([]);
@@ -112,11 +102,9 @@ export default function EditProjectPage() {
       .catch(() => {});
   }, [id]);
 
-  const loadProjectTimeCategories = useCallback(() => {
-    api<ApiListResponse<ProjectTimeCategory>>(
-      `/project-time-categories?projectId=${id}`,
-    )
-      .then((res) => setProjectTimeCategories(res.data))
+  const loadTasks = useCallback(() => {
+    api<ApiListResponse<Task>>(`/tasks?projectId=${id}`)
+      .then((res) => setTasks(res.data))
       .catch(() => {});
   }, [id]);
 
@@ -144,13 +132,10 @@ export default function EditProjectPage() {
     api<ApiListResponse<Expense>>("/expenses")
       .then((res) => setGlobalExpenses(res.data))
       .catch(() => {});
-    api<ApiListResponse<TimeCategory>>("/time-categories")
-      .then((res) => setGlobalTimeCategories(res.data))
-      .catch(() => {});
     loadProjectExpenses();
     loadMilestones();
     loadProjectContacts();
-    loadProjectTimeCategories();
+    loadTasks();
     loadProjectUserRates();
   }, [
     authenticated,
@@ -158,7 +143,7 @@ export default function EditProjectPage() {
     loadProjectExpenses,
     loadMilestones,
     loadProjectContacts,
-    loadProjectTimeCategories,
+    loadTasks,
     loadProjectUserRates,
   ]);
 
@@ -192,6 +177,10 @@ export default function EditProjectPage() {
       budgetCents: budgetStr
         ? Math.round(parseFloat(budgetStr) * 100)
         : undefined,
+      budgetHours: (() => {
+        const s = form.get("budgetHours") as string;
+        return s ? parseFloat(s) : undefined;
+      })(),
       projectManagerId: (form.get("projectManagerId") as string) || undefined,
     };
 
@@ -331,6 +320,20 @@ export default function EditProjectPage() {
                     : ""
                 }
                 placeholder="0.00"
+              />
+            </FormField>
+
+            <FormField label="Budget (hours)" htmlFor="budgetHours">
+              <Input
+                id="budgetHours"
+                name="budgetHours"
+                type="number"
+                step="0.5"
+                min="0"
+                defaultValue={
+                  project.budgetHours != null ? String(project.budgetHours) : ""
+                }
+                placeholder="e.g. 200"
               />
             </FormField>
 
@@ -728,11 +731,9 @@ export default function EditProjectPage() {
                   e.preventDefault();
                   setSavingMilestone(true);
                   const form = new FormData(e.currentTarget);
-                  const budgetStr = form.get("budgetHours") as string;
                   const dto: CreateMilestoneDto = {
                     projectId: id,
                     name: form.get("name") as string,
-                    budgetHours: budgetStr ? parseFloat(budgetStr) : undefined,
                   };
                   try {
                     await api<ApiResponse<Milestone>>("/milestones", {
@@ -755,7 +756,7 @@ export default function EditProjectPage() {
                 }}
                 className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
               >
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium mb-1">
                     Name <span className="text-red-500">*</span>
                   </label>
@@ -763,19 +764,6 @@ export default function EditProjectPage() {
                     name="name"
                     required
                     placeholder="e.g. Phase 1 — Design"
-                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Time Budget (hours)
-                  </label>
-                  <input
-                    name="budgetHours"
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    placeholder="e.g. 40"
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
@@ -802,9 +790,6 @@ export default function EditProjectPage() {
                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                       <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                         Name
-                      </th>
-                      <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                        Budget (hours)
                       </th>
                       <th className="px-4 py-2.5">
                         <span className="sr-only">Actions</span>
@@ -835,52 +820,27 @@ export default function EditProjectPage() {
                             ms.name
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
-                          {editingMilestoneId === ms.id ? (
-                            <input
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              value={editingMilestoneBudget}
-                              onChange={(e) =>
-                                setEditingMilestoneBudget(e.target.value)
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Escape")
-                                  setEditingMilestoneId(null);
-                              }}
-                              className="w-24 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setEditingMilestoneId(ms.id);
-                                setEditingMilestoneName(ms.name);
-                                setEditingMilestoneBudget(
-                                  ms.budgetHours != null
-                                    ? String(ms.budgetHours)
-                                    : "",
-                                );
-                              }}
-                              className="inline-flex items-center gap-1.5 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                              title="Click to edit"
-                            >
-                              {ms.budgetHours != null
-                                ? `${Number(ms.budgetHours)}h`
-                                : "—"}
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 16 16"
-                                fill="currentColor"
-                                className="h-3 w-3 opacity-40"
-                              >
-                                <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
-                              </svg>
-                            </button>
-                          )}
-                        </td>
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {editingMilestoneId !== ms.id && (
+                              <button
+                                onClick={() => {
+                                  setEditingMilestoneId(ms.id);
+                                  setEditingMilestoneName(ms.name);
+                                }}
+                                className="text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                                title="Edit name"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 16 16"
+                                  fill="currentColor"
+                                  className="h-4 w-4"
+                                >
+                                  <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                                </svg>
+                              </button>
+                            )}
                             {editingMilestoneId === ms.id && (
                               <button
                                 onClick={async () => {
@@ -891,9 +851,6 @@ export default function EditProjectPage() {
                                         method: "PUT",
                                         body: JSON.stringify({
                                           name: editingMilestoneName,
-                                          budgetHours: editingMilestoneBudget
-                                            ? parseFloat(editingMilestoneBudget)
-                                            : null,
                                         }),
                                       },
                                     );
@@ -954,165 +911,103 @@ export default function EditProjectPage() {
           </section>
         )}
 
-        {/* ── Project Time Categories ──────────────────── */}
+        {/* ── Tasks ──────────────────────────────────────── */}
         {project && (
           <section className="mt-10">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Time Categories</h2>
+              <h2 className="text-lg font-semibold">Tasks</h2>
               <button
-                onClick={() => setShowTimeCatForm((v) => !v)}
+                onClick={() => setShowTaskForm((v) => !v)}
                 className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
               >
-                {showTimeCatForm ? "Cancel" : "+ Add Category"}
+                {showTaskForm ? "Cancel" : "+ Add Task"}
               </button>
             </div>
 
-            {showTimeCatForm && (
+            {showTaskForm && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  setSavingTimeCat(true);
+                  setSavingTask(true);
                   const form = new FormData(e.currentTarget);
-                  let dto: CreateProjectTimeCategoryDto;
-
-                  if (timeCatMode === "existing") {
-                    const timeCategoryId = form.get("timeCategoryId") as string;
-                    dto = {
-                      projectId: id,
-                      timeCategoryId,
-                    };
-                  } else {
-                    dto = {
-                      projectId: id,
-                      name: form.get("name") as string,
-                      description:
-                        (form.get("description") as string) || undefined,
-                    };
-                  }
+                  const budgetStr = form.get("budgetHours") as string;
+                  const dto: CreateTaskDto = {
+                    projectId: id,
+                    name: form.get("name") as string,
+                    description:
+                      (form.get("description") as string) || undefined,
+                    budgetHours: budgetStr ? parseFloat(budgetStr) : undefined,
+                  };
                   try {
-                    await api<ApiResponse<ProjectTimeCategory>>(
-                      "/project-time-categories",
-                      {
-                        method: "POST",
-                        body: JSON.stringify(dto),
-                      },
-                    );
-                    addToast("Time category added");
-                    setShowTimeCatForm(false);
-                    loadProjectTimeCategories();
+                    await api<ApiResponse<Task>>("/tasks", {
+                      method: "POST",
+                      body: JSON.stringify(dto),
+                    });
+                    addToast("Task added");
+                    setShowTaskForm(false);
+                    loadTasks();
                   } catch (err) {
                     addToast(
-                      err instanceof Error
-                        ? err.message
-                        : "Failed to add time category",
+                      err instanceof Error ? err.message : "Failed to add task",
                       "error",
                     );
                   } finally {
-                    setSavingTimeCat(false);
+                    setSavingTask(false);
                   }
                 }}
-                className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 space-y-4"
+                className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
               >
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="mode"
-                      checked={timeCatMode === "existing"}
-                      onChange={() => setTimeCatMode("existing")}
-                      className="accent-emerald-600"
-                    />
-                    From existing
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="mode"
-                      checked={timeCatMode === "custom"}
-                      onChange={() => setTimeCatMode("custom")}
-                      className="accent-emerald-600"
-                    />
-                    Create new
-                  </label>
-                </div>
-
-                {timeCatMode === "existing" ? (
-                  (() => {
-                    const available = globalTimeCategories.filter(
-                      (gc) =>
-                        !projectTimeCategories.some(
-                          (ptc) => ptc.timeCategoryId === gc.id,
-                        ),
-                    );
-                    return available.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        All global time categories have already been added to
-                        this project. You can create a new custom category
-                        instead.
-                      </p>
-                    ) : (
-                      <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Category <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          name="timeCategoryId"
-                          required
-                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        >
-                          <option value="">Select a category…</option>
-                          {available.map((gc) => (
-                            <option key={gc.id} value={gc.id}>
-                              {gc.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium mb-1">
-                        Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        name="name"
-                        required
-                        placeholder="e.g. Site Visit"
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium mb-1">
-                        Description
-                      </label>
-                      <input
-                        name="description"
-                        placeholder="Optional description"
-                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="name"
+                    required
+                    placeholder="e.g. Site Visit"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Budget (hours)
+                  </label>
+                  <input
+                    name="budgetHours"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    placeholder="e.g. 40"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium mb-1">
+                    Description
+                  </label>
+                  <input
+                    name="description"
+                    placeholder="Optional description"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="sm:col-span-2">
                   <button
                     type="submit"
-                    disabled={savingTimeCat}
+                    disabled={savingTask}
                     className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
                   >
-                    {savingTimeCat ? "Adding…" : "Add Category"}
+                    {savingTask ? "Adding…" : "Add Task"}
                   </button>
                 </div>
               </form>
             )}
 
-            {projectTimeCategories.length === 0 && !showTimeCatForm ? (
+            {tasks.length === 0 && !showTaskForm ? (
               <p className="text-gray-500 dark:text-gray-400 text-sm">
-                No time categories configured for this project.
+                No tasks configured for this project.
               </p>
-            ) : projectTimeCategories.length > 0 ? (
+            ) : tasks.length > 0 ? (
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
@@ -1120,44 +1015,48 @@ export default function EditProjectPage() {
                       <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                         Name
                       </th>
+                      <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Budget
+                      </th>
                       <th className="px-4 py-2.5">
                         <span className="sr-only">Actions</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {projectTimeCategories.map((ptc) => (
+                    {tasks.map((t) => (
                       <tr
-                        key={ptc.id}
+                        key={t.id}
                         className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                       >
                         <td className="px-4 py-2.5">
-                          <p className="font-medium">{ptc.name}</p>
-                          {ptc.description && (
+                          <p className="font-medium">{t.name}</p>
+                          {t.description && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {ptc.description}
+                              {t.description}
                             </p>
                           )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                          {t.budgetHours != null
+                            ? `${Number(t.budgetHours)}h`
+                            : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <button
                             onClick={async () => {
                               try {
-                                await api(
-                                  `/project-time-categories/${ptc.id}`,
-                                  { method: "DELETE" },
-                                );
-                                addToast("Time category removed");
-                                loadProjectTimeCategories();
+                                await api(`/tasks/${t.id}`, {
+                                  method: "DELETE",
+                                });
+                                addToast("Task removed");
+                                loadTasks();
                               } catch {
-                                addToast(
-                                  "Failed to remove time category",
-                                  "error",
-                                );
+                                addToast("Failed to remove task", "error");
                               }
                             }}
                             className="text-gray-400 hover:text-red-500 transition-colors"
-                            aria-label="Remove time category"
+                            aria-label="Remove task"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"

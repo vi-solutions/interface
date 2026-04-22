@@ -14,8 +14,7 @@ export class MilestonesService {
 
   async findByProject(projectId: string): Promise<Milestone[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, project_id AS "projectId", name,
-              budget_hours AS "budgetHours",
+      `SELECT id, project_id AS "projectId", name, completed,
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM milestones WHERE project_id = $1 ORDER BY created_at`,
       [projectId],
@@ -25,8 +24,7 @@ export class MilestonesService {
 
   async findById(id: string): Promise<Milestone> {
     const { rows } = await this.pool.query(
-      `SELECT id, project_id AS "projectId", name,
-              budget_hours AS "budgetHours",
+      `SELECT id, project_id AS "projectId", name, completed,
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM milestones WHERE id = $1`,
       [id],
@@ -38,12 +36,11 @@ export class MilestonesService {
   async create(dto: CreateMilestoneDto): Promise<Milestone> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO milestones (id, project_id, name, budget_hours)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, project_id AS "projectId", name,
-                 budget_hours AS "budgetHours",
+      `INSERT INTO milestones (id, project_id, name)
+       VALUES ($1, $2, $3)
+       RETURNING id, project_id AS "projectId", name, completed,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
-      [id, dto.projectId, dto.name, dto.budgetHours ?? null],
+      [id, dto.projectId, dto.name],
     );
     return rows[0];
   }
@@ -51,15 +48,14 @@ export class MilestonesService {
   async update(id: string, dto: UpdateMilestoneDto): Promise<Milestone> {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
-      `UPDATE milestones SET name = $2, budget_hours = $3, updated_at = NOW()
+      `UPDATE milestones SET name = $2, completed = $3, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, project_id AS "projectId", name,
-                 budget_hours AS "budgetHours",
+       RETURNING id, project_id AS "projectId", name, completed,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.name ?? existing.name,
-        dto.budgetHours !== undefined ? dto.budgetHours : existing.budgetHours,
+        dto.completed !== undefined ? dto.completed : existing.completed,
       ],
     );
     return rows[0];

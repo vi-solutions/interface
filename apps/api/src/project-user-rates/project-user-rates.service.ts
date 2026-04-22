@@ -19,6 +19,8 @@ export class ProjectUserRatesService {
               pur.user_id AS "userId",
               pur.hourly_rate_cents AS "hourlyRateCents",
               pur.daily_rate_cents AS "dailyRateCents",
+              pur.budget_hours AS "budgetHours",
+              pur.budget_cents AS "budgetCents",
               pur.created_at AS "createdAt", pur.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user
        FROM project_user_rates pur
@@ -35,6 +37,8 @@ export class ProjectUserRatesService {
       `SELECT id, project_id AS "projectId", user_id AS "userId",
               hourly_rate_cents AS "hourlyRateCents",
               daily_rate_cents AS "dailyRateCents",
+              budget_hours AS "budgetHours",
+              budget_cents AS "budgetCents",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM project_user_rates WHERE id = $1`,
       [id],
@@ -46,15 +50,19 @@ export class ProjectUserRatesService {
   async create(dto: CreateProjectUserRateDto): Promise<ProjectUserRate> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO project_user_rates (id, project_id, user_id, hourly_rate_cents, daily_rate_cents)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO project_user_rates (id, project_id, user_id, hourly_rate_cents, daily_rate_cents, budget_hours, budget_cents)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (project_id, user_id) DO UPDATE
          SET hourly_rate_cents = EXCLUDED.hourly_rate_cents,
              daily_rate_cents = EXCLUDED.daily_rate_cents,
+             budget_hours = EXCLUDED.budget_hours,
+             budget_cents = EXCLUDED.budget_cents,
              updated_at = NOW()
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  hourly_rate_cents AS "hourlyRateCents",
                  daily_rate_cents AS "dailyRateCents",
+                 budget_hours AS "budgetHours",
+                 budget_cents AS "budgetCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -62,6 +70,8 @@ export class ProjectUserRatesService {
         dto.userId,
         dto.hourlyRateCents ?? null,
         dto.dailyRateCents ?? null,
+        dto.budgetHours ?? null,
+        dto.budgetCents ?? null,
       ],
     );
     return rows[0];
@@ -83,6 +93,14 @@ export class ProjectUserRatesService {
       sets.push(`daily_rate_cents = $${idx++}`);
       values.push(dto.dailyRateCents);
     }
+    if (dto.budgetHours !== undefined) {
+      sets.push(`budget_hours = $${idx++}`);
+      values.push(dto.budgetHours);
+    }
+    if (dto.budgetCents !== undefined) {
+      sets.push(`budget_cents = $${idx++}`);
+      values.push(dto.budgetCents);
+    }
 
     if (sets.length === 0) return this.findById(id);
 
@@ -94,6 +112,8 @@ export class ProjectUserRatesService {
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  hourly_rate_cents AS "hourlyRateCents",
                  daily_rate_cents AS "dailyRateCents",
+                 budget_hours AS "budgetHours",
+                 budget_cents AS "budgetCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       values,
     );
