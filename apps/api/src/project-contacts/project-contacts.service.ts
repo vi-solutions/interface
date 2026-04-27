@@ -22,6 +22,7 @@ export class ProjectContactsService {
                 'email', c.email,
                 'phone', c.phone,
                 'title', c.title,
+                'agency', c.agency,
                 'createdAt', c.created_at,
                 'updatedAt', c.updated_at
               ) AS contact
@@ -55,6 +56,7 @@ export class ProjectContactsService {
                 'email', c.email,
                 'phone', c.phone,
                 'title', c.title,
+                'agency', c.agency,
                 'createdAt', c.created_at,
                 'updatedAt', c.updated_at
               ) AS contact

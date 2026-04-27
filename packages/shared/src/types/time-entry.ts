@@ -7,7 +7,6 @@ export interface TimeEntry {
   hours: number;
   description: string | null;
   billable: boolean;
-  qboTimeActivityId: string | null;
   createdAt: string;
   updatedAt: string;
 }

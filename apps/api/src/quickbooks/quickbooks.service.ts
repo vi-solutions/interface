@@ -475,4 +475,139 @@ export class QuickbooksService {
       SyncToken: existing.Purchase.SyncToken,
     });
   }
+
+  /* ------------------------------------------------------------------ */
+  /*  QBO Invoice                                                        */
+  /* ------------------------------------------------------------------ */
+
+  /** Cache for income account and service item IDs */
+  private incomeAccountId: string | null = null;
+  private serviceItemId: string | null = null;
+
+  private async getIncomeAccountRef(): Promise<string> {
+    if (this.incomeAccountId) return this.incomeAccountId;
+    const result = await this.qboGet<{
+      QueryResponse: { Account?: Array<{ Id: string }> };
+    }>(
+      `/query?query=${encodeURIComponent("SELECT Id FROM Account WHERE AccountType = 'Income' MAXRESULTS 1")}`,
+    );
+    const account = result.QueryResponse.Account?.[0];
+    if (!account) {
+      throw new BadRequestException(
+        "No Income account found in QuickBooks. Please create one first.",
+      );
+    }
+    this.incomeAccountId = account.Id;
+    return account.Id;
+  }
+
+  /** Find or create a "Services" item to use as the line item product/service ref */
+  private async getServiceItemRef(): Promise<string> {
+    if (this.serviceItemId) return this.serviceItemId;
+
+    const searchResult = await this.qboGet<{
+      QueryResponse: { Item?: Array<{ Id: string }> };
+    }>(
+      `/query?query=${encodeURIComponent("SELECT Id FROM Item WHERE Name = 'Services' MAXRESULTS 1")}`,
+    );
+
+    const existing = searchResult.QueryResponse.Item?.[0];
+    if (existing) {
+      this.serviceItemId = existing.Id;
+      return existing.Id;
+    }
+
+    const incomeAccountId = await this.getIncomeAccountRef();
+    const created = await this.qboPost<{ Item: { Id: string } }>("/item", {
+      Name: "Services",
+      Type: "Service",
+      IncomeAccountRef: { value: incomeAccountId },
+    });
+    this.serviceItemId = created.Item.Id;
+    return created.Item.Id;
+  }
+
+  /** Look up the active HST/GST tax code ID for Canadian QBO accounts */
+  private taxCodeId: string | null = null;
+  private async getTaxCodeRef(): Promise<string> {
+    if (this.taxCodeId) return this.taxCodeId;
+
+    const result = await this.qboGet<{
+      QueryResponse: { TaxCode?: Array<{ Id: string; Name: string }> };
+    }>(
+      `/query?query=${encodeURIComponent("SELECT Id, Name FROM TaxCode WHERE Active = true MAXRESULTS 30")}`,
+    );
+    const codes = result.QueryResponse.TaxCode ?? [];
+    this.logger.debug(
+      `Available tax codes: ${codes.map((c) => `${c.Id}:${c.Name}`).join(", ")}`,
+    );
+    // Prefer a provincial HST rate, then GST, then anything non-exempt
+    const preferred =
+      codes.find((c) => /^hst/i.test(c.Name)) ??
+      codes.find((c) => /hst/i.test(c.Name)) ??
+      codes.find((c) => /^gst/i.test(c.Name)) ??
+      codes.find((c) => !/exempt|zero|out of scope|non/i.test(c.Name));
+    if (!preferred) {
+      throw new BadRequestException(
+        "No active GST/HST tax code found in QuickBooks.",
+      );
+    }
+    this.logger.log(`Using QBO tax code: ${preferred.Id} (${preferred.Name})`);
+    this.taxCodeId = preferred.Id;
+    return preferred.Id;
+  }
+
+  async createInvoice(params: {
+    customerRef: string;
+    txnDate: string;
+    dueDate?: string;
+    lineItems: Array<{
+      description: string;
+      quantity: number;
+      unitCents: number;
+    }>;
+    memo?: string;
+  }): Promise<string> {
+    const itemRef = await this.getServiceItemRef();
+    const taxCode = await this.getTaxCodeRef();
+
+    const lines = params.lineItems.map((li) => ({
+      Amount: (li.unitCents * li.quantity) / 100,
+      DetailType: "SalesItemLineDetail",
+      Description: li.description,
+      SalesItemLineDetail: {
+        ItemRef: { value: itemRef },
+        Qty: li.quantity,
+        UnitPrice: li.unitCents / 100,
+        TaxCodeRef: { value: taxCode },
+      },
+    }));
+
+    const body: Record<string, unknown> = {
+      CustomerRef: { value: params.customerRef },
+      TxnDate: params.txnDate,
+      // TaxExcluded: line amounts are pre-tax; QBO calculates and appends tax
+      GlobalTaxCalculation: "TaxExcluded",
+      Line: lines,
+    };
+    if (params.dueDate) body.DueDate = params.dueDate;
+    if (params.memo) body.CustomerMemo = { value: params.memo };
+
+    const result = await this.qboPost<{ Invoice: { Id: string } }>(
+      "/invoice",
+      body,
+    );
+    return result.Invoice.Id;
+  }
+
+  async deleteInvoice(qboId: string): Promise<void> {
+    const existing = await this.qboGet<{
+      Invoice: { Id: string; SyncToken: string };
+    }>(`/invoice/${qboId}`);
+
+    await this.qboPost("/invoice?operation=void", {
+      Id: qboId,
+      SyncToken: existing.Invoice.SyncToken,
+    });
+  }
 }

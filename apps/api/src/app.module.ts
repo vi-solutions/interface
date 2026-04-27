@@ -17,6 +17,9 @@ import { TasksModule } from "./tasks/tasks.module";
 import { ProjectUserRatesModule } from "./project-user-rates/project-user-rates.module";
 import { QuickbooksModule } from "./quickbooks/quickbooks.module";
 import { GoogleDriveModule } from "./google-drive/google-drive.module";
+import { ProjectNotesModule } from "./project-notes/project-notes.module";
+import { InvoicesModule } from "./invoices/invoices.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
 import { AuthGuard } from "./auth/auth.guard";
 
 @Module({
@@ -38,6 +41,9 @@ import { AuthGuard } from "./auth/auth.guard";
     ProjectUserRatesModule,
     QuickbooksModule,
     GoogleDriveModule,
+    ProjectNotesModule,
+    InvoicesModule,
+    WebhooksModule,
   ],
   providers: [{ provide: APP_GUARD, useExisting: AuthGuard }],
 })

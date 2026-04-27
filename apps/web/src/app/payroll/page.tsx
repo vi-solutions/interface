@@ -7,36 +7,10 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Button, Card } from "@/components/ui";
 
-// Payroll CSV columns
-const CSV_HEADERS = [
-  "Employee Name",
-  "Date",
-  "Hours",
-  "Project",
-  "Description",
-];
+// ── helpers ──────────────────────────────────────────────────────────────────
 
-function toCSV(entries: TimeEntryWithDetails[]): string {
-  const escape = (v: string | number | null | undefined) => {
-    const s = v == null ? "" : String(v);
-    return s.includes(",") || s.includes('"') || s.includes("\n")
-      ? `"${s.replace(/"/g, '""')}"`
-      : s;
-  };
-
-  const rows = entries.map((e) =>
-    [
-      e.user.name,
-      e.date,
-      Number(e.hours).toFixed(2),
-      e.project.name,
-      e.description ?? "",
-    ]
-      .map(escape)
-      .join(","),
-  );
-
-  return [CSV_HEADERS.join(","), ...rows].join("\r\n");
+function fmt(d: Date) {
+  return d.toISOString().slice(0, 10);
 }
 
 function formatDate(iso: string) {
@@ -48,53 +22,92 @@ function formatDate(iso: string) {
   });
 }
 
-function downloadCSV(content: string, filename: string) {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+function currentPeriod(): [string, string] {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const d = today.getDate();
+  if (d <= 15) {
+    return [fmt(new Date(y, m, 1)), fmt(new Date(y, m, 15))];
+  } else {
+    return [fmt(new Date(y, m, 16)), fmt(new Date(y, m + 1, 0))];
+  }
 }
 
-// Summarise hours by employee for the preview table
-function summariseByEmployee(
-  entries: TimeEntryWithDetails[],
-): { name: string; totalHours: number; entryCount: number }[] {
-  const map = new Map<
+function recentPeriods(): { label: string; start: string; end: string }[] {
+  const periods: { label: string; start: string; end: string }[] = [];
+  const today = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(
+      today.getFullYear(),
+      today.getMonth() - Math.floor(i / 2),
+      1,
+    );
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const isFirst = i % 2 === 0;
+    const start = isFirst ? fmt(new Date(y, m, 1)) : fmt(new Date(y, m, 16));
+    const end = isFirst ? fmt(new Date(y, m, 15)) : fmt(new Date(y, m + 1, 0));
+    const monthLabel = d.toLocaleDateString("en-CA", {
+      month: "short",
+      year: "numeric",
+    });
+    periods.push({
+      label: isFirst ? `${monthLabel} 1–15` : `${monthLabel} 16–end`,
+      start,
+      end,
+    });
+  }
+  return periods;
+}
+
+function groupByEmployee(entries: TimeEntryWithDetails[]) {
+  const byUser = new Map<
     string,
-    { name: string; totalHours: number; entryCount: number }
+    {
+      name: string;
+      byProject: Map<string, { name: string; hours: number }>;
+    }
   >();
   for (const e of entries) {
-    const existing = map.get(e.userId);
-    if (existing) {
-      existing.totalHours += Number(e.hours);
-      existing.entryCount += 1;
-    } else {
-      map.set(e.userId, {
-        name: e.user.name,
-        totalHours: Number(e.hours),
-        entryCount: 1,
-      });
-    }
+    if (!byUser.has(e.userId))
+      byUser.set(e.userId, { name: e.user.name, byProject: new Map() });
+    const user = byUser.get(e.userId)!;
+    if (!user.byProject.has(e.project.id))
+      user.byProject.set(e.project.id, { name: e.project.name, hours: 0 });
+    user.byProject.get(e.project.id)!.hours += Number(e.hours);
   }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(byUser.entries())
+    .map(([userId, { name, byProject }]) => {
+      const projects = Array.from(byProject.entries())
+        .map(([projectId, { name: pName, hours }]) => ({
+          projectId,
+          name: pName,
+          hours,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return {
+        userId,
+        name,
+        totalHours: projects.reduce((s, p) => s + p.hours, 0),
+        projects,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+// ── component ─────────────────────────────────────────────────────────────────
 
 export default function PayrollPage() {
   const { authenticated } = useRequireAuth();
 
-  // Default pay period: first of current month → today
-  const today = new Date();
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-
-  const [startDate, setStartDate] = useState(fmt(firstOfMonth));
-  const [endDate, setEndDate] = useState(fmt(today));
+  const [periodStart, setPeriodStart] = useState(currentPeriod()[0]);
+  const [periodEnd, setPeriodEnd] = useState(currentPeriod()[1]);
   const [entries, setEntries] = useState<TimeEntryWithDetails[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const periods = recentPeriods();
 
   if (!authenticated) return null;
 
@@ -103,7 +116,7 @@ export default function PayrollPage() {
     setError(null);
     try {
       const res = await api<ApiListResponse<TimeEntryWithDetails>>(
-        `/time-entries?startDate=${startDate}&endDate=${endDate}`,
+        `/time-entries?startDate=${periodStart}&endDate=${periodEnd}`,
       );
       setEntries(res.data);
     } catch (e) {
@@ -113,62 +126,41 @@ export default function PayrollPage() {
     }
   }
 
-  function handleExport() {
-    if (!entries?.length) return;
-    const csv = toCSV(entries);
-    const filename = `payroll-hours-${startDate}-to-${endDate}.csv`;
-    downloadCSV(csv, filename);
-  }
-
-  const summary = entries ? summariseByEmployee(entries) : null;
+  const grouped = entries ? groupByEmployee(entries) : [];
   const totalHours = entries
-    ? entries.reduce((sum, e) => sum + Number(e.hours), 0)
+    ? entries.reduce((s, e) => s + Number(e.hours), 0)
     : 0;
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto p-8">
-        <PageHeader
-          title="Payroll Export"
-          subtitle="Export logged hours as a CSV for payroll import"
-        />
+      <div className="max-w-4xl mx-auto p-8">
+        <PageHeader title="Payroll" subtitle="View hours by pay period" />
 
-        {/* Date range selector */}
-        <Card className="mb-6 p-5">
+        <Card className="mb-6">
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Pay period start
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                Pay period
               </label>
-              <input
-                type="date"
-                value={startDate}
+              <select
+                value={`${periodStart}|${periodEnd}`}
                 onChange={(e) => {
-                  setStartDate(e.target.value);
+                  const [s, end] = e.target.value.split("|");
+                  setPeriodStart(s);
+                  setPeriodEnd(end);
                   setEntries(null);
                 }}
-                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {periods.map((p) => (
+                  <option key={p.start} value={`${p.start}|${p.end}`}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                Pay period end
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setEntries(null);
-                }}
-                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
-            </div>
-            <Button
-              onClick={handleLoad}
-              disabled={loading || !startDate || !endDate}
-            >
-              {loading ? "Loading…" : "Load hours"}
+            <Button onClick={handleLoad} disabled={loading}>
+              {loading ? "Loading…" : "Load"}
             </Button>
           </div>
           {error && (
@@ -178,119 +170,55 @@ export default function PayrollPage() {
           )}
         </Card>
 
-        {/* Results */}
-        {entries !== null && (
-          <>
-            {entries.length === 0 ? (
-              <Card className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">
-                No time entries found for this pay period.
-              </Card>
-            ) : (
-              <>
-                {/* Summary by employee */}
-                <Card className="mb-4">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div>
-                      <p className="font-semibold text-sm">
-                        {entries.length} entries &mdash; {totalHours.toFixed(2)}{" "}
-                        total hours
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {startDate} → {endDate}
-                      </p>
+        {entries !== null &&
+          (entries.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              No time entries for this period.
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {formatDate(periodStart)} – {formatDate(periodEnd)}
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {totalHours.toFixed(2)}h total
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {grouped.map((emp) => (
+                  <Card
+                    key={emp.userId}
+                    padding={false}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+                      <span className="font-semibold text-sm">{emp.name}</span>
+                      <span className="text-sm tabular-nums font-semibold">
+                        {emp.totalHours.toFixed(2)}h
+                      </span>
                     </div>
-                    <Button onClick={handleExport}>Download CSV</Button>
-                  </div>
-
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        <th className="px-5 py-3 font-medium">Employee</th>
-                        <th className="px-5 py-3 font-medium text-right">
-                          Entries
-                        </th>
-                        <th className="px-5 py-3 font-medium text-right">
-                          Total Hours
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {summary!.map((row) => (
-                        <tr
-                          key={row.name}
-                          className="border-b border-gray-100 dark:border-gray-700 last:border-0"
+                    <div>
+                      {emp.projects.map((proj) => (
+                        <div
+                          key={proj.projectId}
+                          className="flex items-center justify-between px-5 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                         >
-                          <td className="px-5 py-3 font-medium">{row.name}</td>
-                          <td className="px-5 py-3 text-right text-gray-500 dark:text-gray-400">
-                            {row.entryCount}
-                          </td>
-                          <td className="px-5 py-3 text-right font-medium">
-                            {row.totalHours.toFixed(2)}
-                          </td>
-                        </tr>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {proj.name}
+                          </span>
+                          <span className="text-sm tabular-nums text-gray-600 dark:text-gray-400">
+                            {proj.hours.toFixed(2)}h
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-gray-50 dark:bg-gray-800/50">
-                        <td className="px-5 py-3 font-semibold">Total</td>
-                        <td className="px-5 py-3 text-right text-gray-500 dark:text-gray-400 font-medium">
-                          {entries.length}
-                        </td>
-                        <td className="px-5 py-3 text-right font-semibold">
-                          {totalHours.toFixed(2)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </Card>
-
-                {/* Detail entries */}
-                <Card>
-                  <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <p className="font-semibold text-sm">All entries</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 dark:border-gray-700 text-left text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                          <th className="px-5 py-3 font-medium">Employee</th>
-                          <th className="px-5 py-3 font-medium">Date</th>
-                          <th className="px-5 py-3 font-medium">Project</th>
-                          <th className="px-5 py-3 font-medium">Description</th>
-                          <th className="px-5 py-3 font-medium text-right">
-                            Hours
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {entries.map((e) => (
-                          <tr
-                            key={e.id}
-                            className="border-b border-gray-100 dark:border-gray-700 last:border-0"
-                          >
-                            <td className="px-5 py-3">{e.user.name}</td>
-                            <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
-                              {formatDate(e.date)}
-                            </td>
-                            <td className="px-5 py-3 text-gray-600 dark:text-gray-400">
-                              {e.project.name}
-                            </td>
-                            <td className="px-5 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                              {e.description ?? "—"}
-                            </td>
-                            <td className="px-5 py-3 text-right font-medium">
-                              {Number(e.hours).toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </>
-            )}
-          </>
-        )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          ))}
       </div>
     </AppShell>
   );

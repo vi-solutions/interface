@@ -1,11 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SideNav } from "./side-nav";
 import { Logo } from "./logo";
+import { useAuth } from "@/lib/auth-context";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sideOpen, setSideOpen] = useState(false);
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user && !user.isAdmin) {
+      router.replace("/mobile");
+    }
+  }, [loading, user, router]);
+
+  if (loading || (user && !user.isAdmin)) return null;
 
   return (
     <div className="min-h-screen">

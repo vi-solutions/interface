@@ -14,7 +14,7 @@ export class ContactsService {
 
   async findAll(): Promise<Contact[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, client_id AS "clientId", name, email, phone, title,
+      `SELECT id, client_id AS "clientId", name, email, phone, title, agency,
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM contacts ORDER BY name`,
     );
@@ -23,7 +23,7 @@ export class ContactsService {
 
   async findByClient(clientId: string): Promise<Contact[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, client_id AS "clientId", name, email, phone, title,
+      `SELECT id, client_id AS "clientId", name, email, phone, title, agency,
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM contacts WHERE client_id = $1 ORDER BY name`,
       [clientId],
@@ -33,7 +33,7 @@ export class ContactsService {
 
   async findById(id: string): Promise<Contact> {
     const { rows } = await this.pool.query(
-      `SELECT id, client_id AS "clientId", name, email, phone, title,
+      `SELECT id, client_id AS "clientId", name, email, phone, title, agency,
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM contacts WHERE id = $1`,
       [id],
@@ -45,17 +45,18 @@ export class ContactsService {
   async create(dto: CreateContactDto): Promise<Contact> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO contacts (id, client_id, name, email, phone, title)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, client_id AS "clientId", name, email, phone, title,
+      `INSERT INTO contacts (id, client_id, name, email, phone, title, agency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, client_id AS "clientId", name, email, phone, title, agency,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
-        dto.clientId,
+        dto.clientId ?? null,
         dto.name,
         dto.email ?? null,
         dto.phone ?? null,
         dto.title ?? null,
+        dto.agency ?? null,
       ],
     );
     return rows[0];
@@ -64,9 +65,9 @@ export class ContactsService {
   async update(id: string, dto: UpdateContactDto): Promise<Contact> {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
-      `UPDATE contacts SET name = $2, email = $3, phone = $4, title = $5, updated_at = NOW()
+      `UPDATE contacts SET name = $2, email = $3, phone = $4, title = $5, agency = $6, updated_at = NOW()
        WHERE id = $1
-       RETURNING id, client_id AS "clientId", name, email, phone, title,
+       RETURNING id, client_id AS "clientId", name, email, phone, title, agency,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -74,6 +75,7 @@ export class ContactsService {
         dto.email !== undefined ? dto.email : existing.email,
         dto.phone !== undefined ? dto.phone : existing.phone,
         dto.title !== undefined ? dto.title : existing.title,
+        dto.agency !== undefined ? dto.agency : existing.agency,
       ],
     );
     return rows[0];

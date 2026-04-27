@@ -18,6 +18,7 @@ import type {
   Task,
   ProjectUserRateWithUser,
   User,
+  ProjectNoteWithAuthor,
 } from "@interface/shared";
 import { api, apiUpload } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -51,6 +52,12 @@ export default function ProjectDetailPage() {
   const [projectUserRates, setProjectUserRates] = useState<
     ProjectUserRateWithUser[]
   >([]);
+  const [notes, setNotes] = useState<ProjectNoteWithAuthor[]>([]);
+  const [addingNote, setAddingNote] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState("");
 
   const loadEntries = useCallback(() => {
     api<ApiListResponse<TimeEntryWithUser>>(`/time-entries?projectId=${id}`)
@@ -106,6 +113,14 @@ export default function ProjectDetailPage() {
       .catch(() => {});
   }, [id]);
 
+  const loadNotes = useCallback(() => {
+    api<ApiListResponse<ProjectNoteWithAuthor>>(
+      `/project-notes?projectId=${id}`,
+    )
+      .then((res) => setNotes(res.data))
+      .catch(() => {});
+  }, [id]);
+
   useEffect(() => {
     if (!authenticated) return;
     api<ApiResponse<ProjectWithClient>>(`/projects/${id}`)
@@ -121,6 +136,7 @@ export default function ProjectDetailPage() {
     loadProjectContacts();
     loadTimeCategories();
     loadProjectUserRates();
+    loadNotes();
     api<ApiListResponse<User>>("/users")
       .then((res) => setUsers(res.data))
       .catch(() => {});
@@ -135,6 +151,7 @@ export default function ProjectDetailPage() {
     loadProjectContacts,
     loadTimeCategories,
     loadProjectUserRates,
+    loadNotes,
   ]);
 
   if (!authenticated) return null;
@@ -258,7 +275,7 @@ export default function ProjectDetailPage() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="max-w-5xl mx-auto p-8">
         {error && (
           <p className="text-red-600 bg-red-50 dark:bg-red-900/30 rounded-lg p-4 mb-4">
             {error}
@@ -367,9 +384,16 @@ export default function ProjectDetailPage() {
                         className="flex items-center gap-2 text-sm"
                       >
                         <span className="font-medium">{pc.contact.name}</span>
+                        {pc.contact.agency && (
+                          <span className="text-gray-500 dark:text-gray-400">
+                            — {pc.contact.agency}
+                          </span>
+                        )}
                         {pc.contact.title && (
                           <span className="text-gray-500 dark:text-gray-400">
-                            — {pc.contact.title}
+                            {pc.contact.agency
+                              ? `, ${pc.contact.title}`
+                              : `— ${pc.contact.title}`}
                           </span>
                         )}
                         {pc.contact.email && (
@@ -458,70 +482,244 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Milestone time budget bars */}
-                {milestones.length > 0 && (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                      Milestones
-                    </h3>
-                    <div className="space-y-2">
-                      {milestones.map((m) => (
-                        <div key={m.id} className="flex items-center gap-3">
-                          <button
-                            onClick={async () => {
-                              await api(`/milestones/${m.id}`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  completed: !m.completed,
-                                }),
-                              });
-                              setMilestones((prev) =>
-                                prev.map((ms) =>
-                                  ms.id === m.id
-                                    ? { ...ms, completed: !ms.completed }
-                                    : ms,
-                                ),
-                              );
-                            }}
-                            className={`flex-shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${
-                              m.completed
-                                ? "bg-emerald-500 border-emerald-500"
-                                : "border-gray-300 dark:border-gray-600 hover:border-emerald-400"
-                            }`}
-                            aria-label={
-                              m.completed ? "Mark incomplete" : "Mark complete"
-                            }
-                          >
-                            {m.completed && (
-                              <svg
-                                className="h-3 w-3 text-white"
-                                viewBox="0 0 12 12"
-                                fill="none"
-                              >
-                                <path
-                                  d="M2 6l3 3 5-5"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                          <span
-                            className={`text-sm ${
-                              m.completed
-                                ? "line-through text-gray-400 dark:text-gray-500"
-                                : ""
-                            }`}
-                          >
-                            {m.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                {/* ── Notes ─────────────────────────────────────────── */}
+                <section className="mb-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">Notes</h2>
+                    {!addingNote && (
+                      <button
+                        onClick={() => setAddingNote(true)}
+                        className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+                      >
+                        + Note
+                      </button>
+                    )}
                   </div>
+
+                  {addingNote && (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!newNoteContent.trim()) return;
+                        setSavingNote(true);
+                        try {
+                          await api<ApiResponse<ProjectNoteWithAuthor>>(
+                            "/project-notes",
+                            {
+                              method: "POST",
+                              body: JSON.stringify({
+                                projectId: id,
+                                userId: currentUser!.id,
+                                content: newNoteContent.trim(),
+                              }),
+                            },
+                          );
+                          setNewNoteContent("");
+                          setAddingNote(false);
+                          loadNotes();
+                        } catch {
+                          addToast("Failed to save note", "error");
+                        } finally {
+                          setSavingNote(false);
+                        }
+                      }}
+                      className="mb-4"
+                    >
+                      <textarea
+                        value={newNoteContent}
+                        onChange={(e) => setNewNoteContent(e.target.value)}
+                        placeholder="Add a note…"
+                        rows={3}
+                        autoFocus
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                      />
+                      <div className="flex justify-end gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingNote(false);
+                            setNewNoteContent("");
+                          }}
+                          className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingNote || !newNoteContent.trim()}
+                          className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                        >
+                          {savingNote ? "Saving…" : "Save"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                    {notes.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500">
+                        No notes yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {notes.map((note) => {
+                          const isEdited =
+                            new Date(note.updatedAt).getTime() -
+                              new Date(note.createdAt).getTime() >
+                            2000;
+                          const isEditing = editingNoteId === note.id;
+                          const canEdit = currentUser?.id === note.userId;
+                          const canDelete =
+                            currentUser?.isAdmin ||
+                            currentUser?.id === note.userId;
+
+                          return (
+                            <div
+                              key={note.id}
+                              className="border-l-2 border-emerald-500 pl-3 py-0.5"
+                            >
+                              {isEditing ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={editingNoteContent}
+                                    onChange={(e) =>
+                                      setEditingNoteContent(e.target.value)
+                                    }
+                                    rows={3}
+                                    autoFocus
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={async () => {
+                                        if (!editingNoteContent.trim()) return;
+                                        try {
+                                          await api<
+                                            ApiResponse<ProjectNoteWithAuthor>
+                                          >(`/project-notes/${note.id}`, {
+                                            method: "PUT",
+                                            body: JSON.stringify({
+                                              content:
+                                                editingNoteContent.trim(),
+                                            }),
+                                          });
+                                          setEditingNoteId(null);
+                                          loadNotes();
+                                        } catch {
+                                          addToast(
+                                            "Failed to update note",
+                                            "error",
+                                          );
+                                        }
+                                      }}
+                                      className="rounded-lg bg-emerald-600 px-3 py-1 text-xs text-white font-medium hover:bg-emerald-700 transition-colors"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingNoteId(null)}
+                                      className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap mb-1">
+                                  {note.content}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 ml-2">
+                                <span className="font-medium text-gray-500 dark:text-gray-400">
+                                  {note.author.name}
+                                </span>
+                                <span>·</span>
+                                {isEdited ? (
+                                  <span className="italic">
+                                    edited{" "}
+                                    <time dateTime={note.updatedAt}>
+                                      {new Date(
+                                        note.updatedAt,
+                                      ).toLocaleString()}
+                                    </time>
+                                  </span>
+                                ) : (
+                                  <time dateTime={note.createdAt}>
+                                    {new Date(note.createdAt).toLocaleString()}
+                                  </time>
+                                )}
+                                {(canEdit || canDelete) && !isEditing && (
+                                  <>
+                                    <span>·</span>
+                                    {canEdit && (
+                                      <button
+                                        onClick={() => {
+                                          setEditingNoteId(note.id);
+                                          setEditingNoteContent(note.content);
+                                        }}
+                                        className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                                      >
+                                        edit
+                                      </button>
+                                    )}
+                                    {canEdit && canDelete && <span>·</span>}
+                                    {canDelete && (
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            await api(
+                                              `/project-notes/${note.id}`,
+                                              {
+                                                method: "DELETE",
+                                              },
+                                            );
+                                            loadNotes();
+                                          } catch {
+                                            addToast(
+                                              "Failed to delete note",
+                                              "error",
+                                            );
+                                          }
+                                        }}
+                                        className="hover:text-red-500 transition-colors"
+                                      >
+                                        delete
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </section>
+                {/* Milestones */}
+                {milestones.length > 0 && (
+                  <section className="mb-10">
+                    <h2 className="text-lg font-semibold mb-4">Milestones</h2>
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                      <div className="space-y-2">
+                        {milestones.map((m) => (
+                          <div
+                            key={m.id}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="text-sm">{m.name}</span>
+                            {m.date ? (
+                              <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+                                {new Date(m.date).toLocaleDateString("en-CA")}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-400">—</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
                 )}
               </div>
             )}

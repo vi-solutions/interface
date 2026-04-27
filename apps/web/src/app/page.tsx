@@ -13,6 +13,7 @@ import type {
   Client,
   TimeEntryWithDetails,
   DocumentWithDetails,
+  Task,
 } from "@interface/shared";
 
 interface DashboardData {
@@ -20,6 +21,7 @@ interface DashboardData {
   clients: Client[];
   timeEntries: TimeEntryWithDetails[];
   documents: DocumentWithDetails[];
+  tasks: Task[];
 }
 
 export default function Home() {
@@ -34,12 +36,14 @@ export default function Home() {
       api<ApiListResponse<Client>>("/clients"),
       api<ApiListResponse<TimeEntryWithDetails>>("/time-entries"),
       api<ApiListResponse<DocumentWithDetails>>("/documents"),
-    ]).then(([projects, clients, time, docs]) => {
+      api<ApiListResponse<Task>>("/tasks"),
+    ]).then(([projects, clients, time, docs, tasks]) => {
       setData({
         projects: projects.data,
         clients: clients.data,
         timeEntries: time.data,
         documents: docs.data,
+        tasks: tasks.data,
       });
     });
   }, [authenticated]);
@@ -48,8 +52,22 @@ export default function Home() {
 
   const activeProjects =
     data?.projects.filter((p) => p.status === "active") ?? [];
-  const totalBudget =
-    data?.projects.reduce((sum, p) => sum + (p.budgetCents ?? 0), 0) ?? 0;
+  const activeProjectIds = new Set(activeProjects.map((p) => p.id));
+
+  // Tasks with a time budget, on active projects only
+  const budgetedTasks = (data?.tasks ?? [])
+    .filter((t) => t.budgetHours != null && activeProjectIds.has(t.projectId))
+    .map((t) => {
+      const logged = (data?.timeEntries ?? [])
+        .filter((e) => e.taskId === t.id)
+        .reduce((sum, e) => sum + Number(e.hours), 0);
+      return { ...t, loggedHours: logged };
+    })
+    .sort((a, b) => {
+      const aUsed = a.budgetHours! > 0 ? a.loggedHours / a.budgetHours! : 0;
+      const bUsed = b.budgetHours! > 0 ? b.loggedHours / b.budgetHours! : 0;
+      return bUsed - aUsed;
+    });
   const totalHours =
     data?.timeEntries.reduce((sum, e) => sum + Number(e.hours), 0) ?? 0;
   const billableHours =
@@ -123,53 +141,78 @@ export default function Home() {
           />
         </div>
 
-        {/* Budget Overview */}
-        {totalBudget > 0 && (
+        {/* Task Time Budgets */}
+        {budgetedTasks.length > 0 && (
           <Card className="mb-8">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
-              Project Budgets
+              Task Budgets
             </h2>
-            <div className="space-y-3">
-              {data?.projects
-                .filter((p) => p.budgetCents && p.status !== "archived")
-                .sort((a, b) => (b.budgetCents ?? 0) - (a.budgetCents ?? 0))
-                .slice(0, 5)
-                .map((project) => {
-                  const pct =
-                    totalBudget > 0
-                      ? ((project.budgetCents ?? 0) / totalBudget) * 100
-                      : 0;
-                  return (
-                    <div key={project.id}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <Link
-                          href={`/projects/${project.id}`}
-                          className="font-medium hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate"
-                        >
-                          {project.name}
-                        </Link>
-                        <span className="text-gray-500 dark:text-gray-400 tabular-nums ml-4 shrink-0">
-                          $
-                          {((project.budgetCents ?? 0) / 100).toLocaleString(
-                            undefined,
-                            { minimumFractionDigits: 0 },
-                          )}
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
+            <div className="space-y-6">
+              {Object.entries(
+                budgetedTasks.reduce<Record<string, typeof budgetedTasks>>(
+                  (acc, task) => {
+                    (acc[task.projectId] ??= []).push(task);
+                    return acc;
+                  },
+                  {},
+                ),
+              ).map(([projectId, tasks]) => {
+                const project = data?.projects.find((p) => p.id === projectId);
+                return (
+                  <div key={projectId}>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                      {project?.name ?? "Unknown Project"}
+                    </p>
+                    <div className="space-y-3">
+                      {tasks.map((task) => {
+                        const pct = task.budgetHours!
+                          ? Math.min(
+                              (task.loggedHours / task.budgetHours!) * 100,
+                              100,
+                            )
+                          : 0;
+                        const over = task.loggedHours > task.budgetHours!;
+                        return (
+                          <div key={task.id}>
+                            <div className="flex items-center justify-between text-sm mb-1">
+                              <span className="font-medium truncate">
+                                {task.name}
+                              </span>
+                              <span
+                                className={`tabular-nums ml-4 shrink-0 text-xs ${
+                                  over
+                                    ? "text-red-500 dark:text-red-400 font-medium"
+                                    : "text-gray-500 dark:text-gray-400"
+                                }`}
+                              >
+                                {task.loggedHours.toFixed(1)}h /{" "}
+                                {task.budgetHours}h
+                              </span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  over
+                                    ? "bg-red-500"
+                                    : pct >= 80
+                                      ? "bg-amber-500"
+                                      : "bg-emerald-500"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
             </div>
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 gap-8 mb-8">
           {/* Active Projects */}
           <Card padding={false} className="overflow-hidden">
             <CardHeader
@@ -223,111 +266,7 @@ export default function Home() {
               </div>
             )}
           </Card>
-
-          {/* Recent Time Entries */}
-          <Card padding={false} className="overflow-hidden">
-            <CardHeader
-              title="Recent Time Entries"
-              action={
-                <Link
-                  href="/time"
-                  className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
-                >
-                  View all
-                </Link>
-              }
-            />
-            {recentEntries.length === 0 ? (
-              <p className="px-5 py-8 text-center text-gray-400 text-sm">
-                No time entries yet.
-              </p>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {recentEntries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-center gap-4 px-5 py-3"
-                  >
-                    <div className="h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-amber-700 dark:text-amber-300 tabular-nums">
-                        {Number(entry.hours).toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {entry.description || entry.project.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {entry.user.name} · {entry.project.name}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {entry.billable && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      )}
-                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                        {new Date(entry.date).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
         </div>
-
-        {/* Recent Documents */}
-        {recentDocs.length > 0 && (
-          <Card padding={false} className="overflow-hidden mb-8">
-            <CardHeader
-              title="Recent Documents"
-              action={
-                <Link
-                  href="/documents"
-                  className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
-                >
-                  View all
-                </Link>
-              }
-            />
-            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {recentDocs.map((doc) => (
-                <div key={doc.id} className="flex items-center gap-4 px-5 py-3">
-                  <div
-                    className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                      doc.mimeType?.includes("spreadsheet")
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                        : doc.mimeType?.includes("pdf")
-                          ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                          : doc.mimeType?.includes("presentation")
-                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                    }`}
-                  >
-                    <DocIcon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <a
-                      href={doc.googleDriveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
-                    >
-                      {doc.name}
-                      <span className="ml-1 text-gray-400 text-xs">↗</span>
-                    </a>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {doc.projectName} · {doc.uploadedByName}
-                    </p>
-                  </div>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums shrink-0">
-                    {new Date(doc.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

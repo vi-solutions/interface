@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Param,
   Body,
   Request,
@@ -72,5 +73,28 @@ export class UsersController {
     if (!req.user.isAdmin)
       throw new ForbiddenException("Admin access required");
     return { data: await this.usersService.setAdmin(id, body.isAdmin) };
+  }
+
+  @Put(":id/password")
+  async resetPassword(
+    @Param("id") id: string,
+    @Body() body: { newPassword: string },
+    @Request() req: { user: { sub: string; isAdmin: boolean } },
+  ): Promise<void> {
+    if (!req.user.isAdmin)
+      throw new ForbiddenException("Admin access required");
+    await this.usersService.updatePassword(id, body.newPassword);
+  }
+
+  @Delete(":id")
+  async remove(
+    @Param("id") id: string,
+    @Request() req: { user: { sub: string; isAdmin: boolean } },
+  ): Promise<void> {
+    if (!req.user.isAdmin)
+      throw new ForbiddenException("Admin access required");
+    if (req.user.sub === id)
+      throw new ForbiddenException("Cannot delete your own account");
+    await this.usersService.delete(id);
   }
 }

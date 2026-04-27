@@ -2,7 +2,6 @@ import { Injectable, Inject, NotFoundException } from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
-import { QboSyncService } from "../quickbooks/qbo-sync.service";
 import type {
   TimeEntry,
   TimeEntryWithUser,
@@ -13,15 +12,17 @@ import type {
 
 @Injectable()
 export class TimeEntriesService {
-  constructor(
-    @Inject(DATABASE_POOL) private readonly pool: Pool,
-    private readonly qboSync: QboSyncService,
-  ) {}
+  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
   async findRecent(
-    opts: { limit?: number; startDate?: string; endDate?: string } = {},
+    opts: {
+      limit?: number;
+      startDate?: string;
+      endDate?: string;
+      userId?: string;
+    } = {},
   ): Promise<TimeEntryWithDetails[]> {
-    const { limit = 50, startDate, endDate } = opts;
+    const { limit = 50, startDate, endDate, userId } = opts;
     const params: unknown[] = [];
     const conditions: string[] = [];
 
@@ -32,6 +33,10 @@ export class TimeEntriesService {
     if (endDate) {
       params.push(endDate);
       conditions.push(`t.date <= $${params.length}`);
+    }
+    if (userId) {
+      params.push(userId);
+      conditions.push(`t.user_id = $${params.length}`);
     }
 
     const where =
@@ -48,7 +53,6 @@ export class TimeEntriesService {
               t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
-              t.qbo_time_activity_id AS "qboTimeActivityId",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               json_build_object('id', p.id, 'name', p.name) AS project,
@@ -71,7 +75,6 @@ export class TimeEntriesService {
               t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
-              t.qbo_time_activity_id AS "qboTimeActivityId",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               CASE WHEN tk.id IS NOT NULL THEN json_build_object('id', tk.id, 'name', tk.name) ELSE NULL END AS task
@@ -90,7 +93,6 @@ export class TimeEntriesService {
               task_id AS "taskId",
               date, hours,
               description, billable,
-              qbo_time_activity_id AS "qboTimeActivityId",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM time_entries WHERE id = $1`,
       [id],
@@ -108,7 +110,6 @@ export class TimeEntriesService {
                  task_id AS "taskId",
                  date, hours,
                  description, billable,
-                 qbo_time_activity_id AS "qboTimeActivityId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -121,8 +122,6 @@ export class TimeEntriesService {
         dto.billable ?? true,
       ],
     );
-    // Fire-and-forget QBO sync
-    this.qboSync.syncTimeEntryCreate(id);
     return rows[0];
   }
 
@@ -136,7 +135,6 @@ export class TimeEntriesService {
                  task_id AS "taskId",
                  date, hours,
                  description, billable,
-                 qbo_time_activity_id AS "qboTimeActivityId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -149,14 +147,10 @@ export class TimeEntriesService {
         dto.billable ?? existing.billable,
       ],
     );
-    // Fire-and-forget QBO sync
-    this.qboSync.syncTimeEntryUpdate(id);
     return rows[0];
   }
 
   async remove(id: string): Promise<void> {
-    // Sync delete before removing the row (need qbo_time_activity_id)
-    await this.qboSync.syncTimeEntryDelete(id);
     const result = await this.pool.query(
       "DELETE FROM time_entries WHERE id = $1",
       [id],

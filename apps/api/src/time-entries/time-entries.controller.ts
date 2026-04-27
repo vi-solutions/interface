@@ -26,6 +26,7 @@ export class TimeEntriesController {
   @Get()
   async find(
     @Query("projectId") projectId?: string,
+    @Query("userId") userId?: string,
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
   ): Promise<ApiListResponse<TimeEntryWithUser | TimeEntryWithDetails>> {
@@ -36,6 +37,7 @@ export class TimeEntriesController {
     const data = await this.timeEntriesService.findRecent({
       startDate,
       endDate,
+      userId,
     });
     return { data, total: data.length };
   }

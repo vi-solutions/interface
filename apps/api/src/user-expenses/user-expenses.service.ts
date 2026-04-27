@@ -22,7 +22,8 @@ export class UserExpensesService {
       `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
               ue.project_expense_id AS "projectExpenseId",
               ue.date, ue.quantity, ue.total_cents AS "totalCents",
-              ue.notes, ue.qbo_expense_id AS "qboExpenseId",
+              ue.notes, ue.receipt_url AS "receiptUrl",
+              ue.qbo_expense_id AS "qboExpenseId",
               ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               COALESCE(pe.name, e.name) AS "expenseName",
@@ -38,12 +39,35 @@ export class UserExpensesService {
     return rows;
   }
 
+  async findByUser(userId: string): Promise<UserExpenseWithDetails[]> {
+    const { rows } = await this.pool.query(
+      `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
+              ue.project_expense_id AS "projectExpenseId",
+              ue.date, ue.quantity, ue.total_cents AS "totalCents",
+              ue.notes, ue.receipt_url AS "receiptUrl",
+              ue.qbo_expense_id AS "qboExpenseId",
+              ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
+              json_build_object('id', u.id, 'name', u.name) AS user,
+              COALESCE(pe.name, e.name) AS "expenseName",
+              COALESCE(pe.type, e.type) AS "expenseType"
+       FROM user_expenses ue
+       JOIN users u ON u.id = ue.user_id
+       JOIN project_expenses pe ON pe.id = ue.project_expense_id
+       LEFT JOIN expenses e ON e.id = pe.expense_id
+       WHERE ue.user_id = $1
+       ORDER BY ue.date DESC, ue.created_at DESC`,
+      [userId],
+    );
+    return rows;
+  }
+
   async findById(id: string): Promise<UserExpense> {
     const { rows } = await this.pool.query(
       `SELECT id, project_id AS "projectId", user_id AS "userId",
               project_expense_id AS "projectExpenseId",
               date, quantity, total_cents AS "totalCents",
-              notes, qbo_expense_id AS "qboExpenseId",
+              notes, receipt_url AS "receiptUrl",
+              qbo_expense_id AS "qboExpenseId",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM user_expenses WHERE id = $1`,
       [id],
@@ -60,7 +84,8 @@ export class UserExpensesService {
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
                  date, quantity, total_cents AS "totalCents",
-                 notes, qbo_expense_id AS "qboExpenseId",
+                 notes, receipt_url AS "receiptUrl",
+                 qbo_expense_id AS "qboExpenseId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -87,7 +112,8 @@ export class UserExpensesService {
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
                  date, quantity, total_cents AS "totalCents",
-                 notes, qbo_expense_id AS "qboExpenseId",
+                 notes, receipt_url AS "receiptUrl",
+                 qbo_expense_id AS "qboExpenseId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -100,6 +126,13 @@ export class UserExpensesService {
     // Fire-and-forget QBO sync
     this.qboSync.syncExpenseUpdate(id);
     return rows[0];
+  }
+
+  async saveReceiptUrl(id: string, receiptUrl: string | null): Promise<void> {
+    await this.pool.query(
+      `UPDATE user_expenses SET receipt_url = $2, updated_at = NOW() WHERE id = $1`,
+      [id, receiptUrl],
+    );
   }
 
   async remove(id: string): Promise<void> {

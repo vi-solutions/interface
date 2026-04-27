@@ -9,11 +9,14 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: HomeIcon },
   { href: "/projects", label: "Projects", icon: FolderIcon },
   { href: "/clients", label: "Clients", icon: UsersIcon },
+  { href: "/contacts", label: "Contacts", icon: ContactIcon },
   { href: "/documents", label: "Documents", icon: DocumentIcon },
   { href: "/time", label: "Time", icon: ClockIcon },
   { href: "/expenses", label: "Expenses", icon: CurrencyIcon },
   { href: "/time-categories", label: "Time Categories", icon: TagIcon },
   { href: "/payroll", label: "Payroll", icon: PayrollIcon },
+  { href: "/invoices", label: "Invoices", icon: InvoiceIcon },
+  { href: "/mobile", label: "Mobile View", icon: PhoneIcon },
 ];
 
 export function SideNav({
@@ -88,16 +91,16 @@ export function SideNav({
           {user.isAdmin && (
             <>
               <Link
-                href="/admin/users"
+                href="/users"
                 onClick={onClose}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive("/admin/users")
+                  isActive("/users")
                     ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
                     : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                 }`}
               >
                 <ShieldIcon className="h-5 w-5" />
-                Admin
+                Users
               </Link>
               <Link
                 href="/admin/integrations"
@@ -198,7 +201,11 @@ function UsersIcon({ className }: { className?: string }) {
       fill="currentColor"
       className={className}
     >
-      <path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" />
+      <path
+        fillRule="evenodd"
+        d="M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h12.5a.75.75 0 0 1 0 1.5H16v13h.25a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1 0-1.5H4Zm3-11a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 7 5.5Zm.75 2.25a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5ZM7 11.5a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm3.75-5.25a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5Zm-.75 3a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5h-1.5Z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 }
@@ -333,6 +340,23 @@ function LinkIcon({ className }: { className?: string }) {
   );
 }
 
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M8 1a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H8Zm1 14a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 function PayrollIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -346,6 +370,36 @@ function PayrollIcon({ className }: { className?: string }) {
         d="M4 4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4Zm3 5a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2H7Z"
         clipRule="evenodd"
       />
+    </svg>
+  );
+}
+
+function InvoiceIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path
+        fillRule="evenodd"
+        d="M4.93 1.31a41.401 41.401 0 0 1 10.14 0C16.255 1.415 17 2.272 17 3.28V18.25a.75.75 0 0 1-1.138.643l-2.112-1.21-2.112 1.21a.75.75 0 0 1-.75 0L9 17.883l-1.888 1.08a.75.75 0 0 1-.75 0l-2.112-1.21-2.112 1.21A.75.75 0 0 1 1 18.25V3.28c0-1.008.745-1.865 1.93-1.97ZM6 6.75A.75.75 0 0 1 6.75 6h6.5a.75.75 0 0 1 0 1.5h-6.5A.75.75 0 0 1 6 6.75Zm0 3.5a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Zm0 3.5a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function ContactIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" />
     </svg>
   );
 }

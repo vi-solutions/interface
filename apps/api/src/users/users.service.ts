@@ -162,4 +162,12 @@ export class UsersService {
     if (!rows[0]) throw new NotFoundException("User not found");
     return rows[0];
   }
+
+  async delete(id: string): Promise<void> {
+    const { rowCount } = await this.pool.query(
+      `DELETE FROM users WHERE id = $1`,
+      [id],
+    );
+    if (!rowCount) throw new NotFoundException("User not found");
+  }
 }

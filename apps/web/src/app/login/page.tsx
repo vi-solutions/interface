@@ -18,8 +18,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(email, password);
-      router.push("/");
+      const authRes = await login(email, password);
+      router.push(authRes.user.isAdmin ? "/" : "/mobile");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

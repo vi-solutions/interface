@@ -16,6 +16,16 @@ import type {
 export class TasksService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
+  async findAll(): Promise<Task[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, project_id AS "projectId", name, description,
+              budget_hours AS "budgetHours",
+              created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM tasks ORDER BY name`,
+    );
+    return rows;
+  }
+
   async findByProject(projectId: string): Promise<Task[]> {
     const { rows } = await this.pool.query(
       `SELECT id, project_id AS "projectId", name, description,

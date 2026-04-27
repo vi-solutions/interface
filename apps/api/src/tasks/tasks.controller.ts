@@ -27,9 +27,11 @@ export class TasksController {
 
   @Get()
   async findByProject(
-    @Query("projectId") projectId: string,
+    @Query("projectId") projectId?: string,
   ): Promise<ApiListResponse<Task>> {
-    const data = await this.tasksService.findByProject(projectId);
+    const data = projectId
+      ? await this.tasksService.findByProject(projectId)
+      : await this.tasksService.findAll();
     return { data, total: data.length };
   }
 

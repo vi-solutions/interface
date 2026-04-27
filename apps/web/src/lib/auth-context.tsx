@@ -15,7 +15,7 @@ import type { ApiResponse } from "@interface/shared";
 interface AuthContextValue {
   user: AuthResponse["user"] | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthResponse>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -78,13 +78,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [token]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api<ApiResponse<AuthResponse>>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-    persist(res.data);
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string): Promise<AuthResponse> => {
+      const res = await api<ApiResponse<AuthResponse>>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      persist(res.data);
+      return res.data;
+    },
+    [],
+  );
 
   const register = useCallback(
     async (email: string, password: string, name: string) => {

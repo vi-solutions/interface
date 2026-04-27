@@ -85,7 +85,7 @@ export default function NewProjectPage() {
 
   return (
     <AppShell>
-      <div className="max-w-2xl mx-auto p-8">
+      <div className="max-w-4xl mx-auto p-8">
         <PageHeader title="New Project" />
 
         {error && <ErrorAlert message={error} />}

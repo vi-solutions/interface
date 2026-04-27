@@ -65,10 +65,11 @@ export default function EditProjectPage() {
     null,
   );
   const [editingMilestoneName, setEditingMilestoneName] = useState("");
+  const [editingMilestoneDate, setEditingMilestoneDate] = useState("");
   const [projectContacts, setProjectContacts] = useState<
     ProjectContactWithDetails[]
   >([]);
-  const [clientContacts, setClientContacts] = useState<Contact[]>([]);
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
   const [savingContact, setSavingContact] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -137,6 +138,9 @@ export default function EditProjectPage() {
     loadProjectContacts();
     loadTasks();
     loadProjectUserRates();
+    api<ApiListResponse<Contact>>("/contacts")
+      .then((res) => setAllContacts(res.data))
+      .catch(() => {});
   }, [
     authenticated,
     id,
@@ -146,13 +150,6 @@ export default function EditProjectPage() {
     loadTasks,
     loadProjectUserRates,
   ]);
-
-  useEffect(() => {
-    if (!project?.clientId) return;
-    api<ApiListResponse<Contact>>(`/contacts?clientId=${project.clientId}`)
-      .then((res) => setClientContacts(res.data))
-      .catch(() => {});
-  }, [project?.clientId]);
 
   if (!authenticated) return null;
 
@@ -200,7 +197,7 @@ export default function EditProjectPage() {
 
   return (
     <AppShell>
-      <div className="max-w-2xl mx-auto p-8">
+      <div className="max-w-4xl mx-auto p-8">
         <div className="mb-6">
           <Link
             href={`/projects/${id}`}
@@ -734,6 +731,7 @@ export default function EditProjectPage() {
                   const dto: CreateMilestoneDto = {
                     projectId: id,
                     name: form.get("name") as string,
+                    date: (form.get("date") as string) || undefined,
                   };
                   try {
                     await api<ApiResponse<Milestone>>("/milestones", {
@@ -756,7 +754,7 @@ export default function EditProjectPage() {
                 }}
                 className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
               >
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-sm font-medium mb-1">
                     Name <span className="text-red-500">*</span>
                   </label>
@@ -764,6 +762,14 @@ export default function EditProjectPage() {
                     name="name"
                     required
                     placeholder="e.g. Phase 1 — Design"
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date</label>
+                  <input
+                    name="date"
+                    type="date"
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
@@ -790,6 +796,9 @@ export default function EditProjectPage() {
                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                       <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                         Name
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Date
                       </th>
                       <th className="px-4 py-2.5">
                         <span className="sr-only">Actions</span>
@@ -820,6 +829,26 @@ export default function EditProjectPage() {
                             ms.name
                           )}
                         </td>
+                        <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                          {editingMilestoneId === ms.id ? (
+                            <input
+                              type="date"
+                              value={editingMilestoneDate}
+                              onChange={(e) =>
+                                setEditingMilestoneDate(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape")
+                                  setEditingMilestoneId(null);
+                              }}
+                              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          ) : ms.date ? (
+                            new Date(ms.date).toLocaleDateString("en-CA")
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {editingMilestoneId !== ms.id && (
@@ -827,9 +856,12 @@ export default function EditProjectPage() {
                                 onClick={() => {
                                   setEditingMilestoneId(ms.id);
                                   setEditingMilestoneName(ms.name);
+                                  setEditingMilestoneDate(
+                                    ms.date?.slice(0, 10) ?? "",
+                                  );
                                 }}
                                 className="text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                                title="Edit name"
+                                title="Edit"
                               >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -851,6 +883,7 @@ export default function EditProjectPage() {
                                         method: "PUT",
                                         body: JSON.stringify({
                                           name: editingMilestoneName,
+                                          date: editingMilestoneDate || null,
                                         }),
                                       },
                                     );
@@ -1407,14 +1440,14 @@ export default function EditProjectPage() {
               const assignedIds = new Set(
                 projectContacts.map((pc) => pc.contactId),
               );
-              const available = clientContacts.filter(
+              const available = allContacts.filter(
                 (c) => !assignedIds.has(c.id),
               );
               return available.length > 0 ? (
                 <div className="mb-4 flex items-end gap-3">
                   <div className="flex-1">
                     <label className="block text-sm font-medium mb-1">
-                      Add a contact from {project.client.name}
+                      Add a contact
                     </label>
                     <select
                       id="addContactSelect"
@@ -1424,7 +1457,8 @@ export default function EditProjectPage() {
                       {available.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
-                          {c.title ? ` — ${c.title}` : ""}
+                          {c.agency ? ` — ${c.agency}` : ""}
+                          {c.title ? ` (${c.title})` : ""}
                         </option>
                       ))}
                     </select>
@@ -1461,20 +1495,20 @@ export default function EditProjectPage() {
                     {savingContact ? "Adding…" : "Add"}
                   </button>
                 </div>
-              ) : clientContacts.length === 0 ? (
+              ) : allContacts.length === 0 ? (
                 <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                  No contacts for this client yet.{" "}
-                  <Link
-                    href={`/clients/${project.clientId}`}
+                  No contacts exist yet.{" "}
+                  <a
+                    href="/contacts"
                     className="text-emerald-600 hover:underline"
                   >
-                    Add contacts on the client page
-                  </Link>
+                    Add contacts on the Contacts page
+                  </a>
                   .
                 </p>
               ) : (
                 <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                  All contacts from {project.client.name} are already assigned.
+                  All contacts are already assigned to this project.
                 </p>
               );
             })()}
@@ -1490,6 +1524,9 @@ export default function EditProjectPage() {
                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                       <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                         Name
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                        Agency
                       </th>
                       <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
                         Title
@@ -1511,6 +1548,9 @@ export default function EditProjectPage() {
                       >
                         <td className="px-4 py-2.5 font-medium">
                           {pc.contact.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
+                          {pc.contact.agency || "—"}
                         </td>
                         <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
                           {pc.contact.title || "—"}
