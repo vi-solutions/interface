@@ -500,8 +500,8 @@ export default function InvoicesPage() {
           <p className="text-sm text-gray-400">Loading…</p>
         ) : invoices.length === 0 ? (
           <EmptyState
-            title="No invoices yet"
-            description="Create your first invoice to push it to QuickBooks."
+            message="No invoices yet"
+            sub="Create your first invoice to push it to QuickBooks."
           />
         ) : (
           <Card padding={false}>

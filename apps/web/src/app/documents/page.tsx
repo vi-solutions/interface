@@ -225,7 +225,7 @@ export default function DocumentsPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <a
-                      href={doc.googleDriveUrl}
+                      href={doc.googleDriveUrl ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-sm hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"

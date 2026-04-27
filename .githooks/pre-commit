@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+echo "Type-checking shared..."
+(cd "$ROOT/packages/shared" && npx tsc --noEmit)
+
+echo "Type-checking api..."
+(cd "$ROOT/apps/api" && npx tsc --noEmit)
+
+echo "Type-checking web..."
+(cd "$ROOT/apps/web" && npx tsc --noEmit)
+
+echo "All checks passed."

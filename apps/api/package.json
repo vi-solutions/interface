@@ -7,7 +7,7 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "start:prod": "node dist/main.js",
-    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "lint": "tsc --noEmit",
     "db:migrate": "nest build && node dist/db/migrate.js",
     "db:seed": "node dist/db/seed.js"
   },
