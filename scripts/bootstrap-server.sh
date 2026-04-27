@@ -39,19 +39,14 @@ ssh "$SSH_HOST" bash << ENDSSH
     apt-get install -y certbot
   fi
 
-  echo "--- Setting up GitHub deploy key for deploy user..."
-  mkdir -p /home/deploy/.ssh
+  echo "--- Verifying GitHub deploy key..."
   if [ ! -f /home/deploy/.ssh/interface_deploy_key ]; then
-    # Copy from root if it was uploaded, otherwise print instructions
-    if [ -f /root/.ssh/interface_deploy_key ]; then
-      cp /root/.ssh/interface_deploy_key /home/deploy/.ssh/interface_deploy_key
-      cp /root/.ssh/interface_deploy_key.pub /home/deploy/.ssh/interface_deploy_key.pub
-      chmod 600 /home/deploy/.ssh/interface_deploy_key
-      chown deploy:deploy /home/deploy/.ssh/interface_deploy_key*
-    else
-      echo "NOTICE: /root/.ssh/interface_deploy_key not found — copy it manually to /home/deploy/.ssh/interface_deploy_key"
-    fi
+    echo "ERROR: /home/deploy/.ssh/interface_deploy_key not found."
+    echo "Place the private key there, then re-run this script."
+    exit 1
   fi
+  chmod 600 /home/deploy/.ssh/interface_deploy_key
+  chown deploy:deploy /home/deploy/.ssh/interface_deploy_key
 
   # SSH config so git uses the deploy key for the interface repo
   cat > /home/deploy/.ssh/config << 'SSHCONF'

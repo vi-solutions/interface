@@ -52,8 +52,8 @@ export default function EditClientPage() {
 
     const dto: UpdateClientDto = {
       name,
-      address: address || null,
-      notes: notes || null,
+      address: address || undefined,
+      notes: notes || undefined,
     };
 
     try {

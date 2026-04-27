@@ -11,7 +11,7 @@ ssh -i ~/.ssh/interface_deploy_key "$SSH_HOST" bash << EOF
   cd "$REMOTE_DIR"
 
   echo "==> Pulling latest code..."
-  git pull origin main
+  GIT_SSH_COMMAND="ssh -i /home/deploy/.ssh/interface_deploy_key" git pull origin main
 
   echo "==> Building images..."
   docker compose -f docker-compose.prod.yml build
