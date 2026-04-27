@@ -1,0 +1,77 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: interface_prod
+      POSTGRES_USER: interface
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U interface -d interface_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://interface:${DB_PASSWORD}@db:5432/interface_prod
+      JWT_SECRET: ${JWT_SECRET}
+      API_PORT: 3001
+      WEB_URL: https://app.interfaceenviro.ca
+      QBO_CLIENT_ID: ${QBO_CLIENT_ID}
+      QBO_CLIENT_SECRET: ${QBO_CLIENT_SECRET}
+      QBO_REDIRECT_URI: https://api.interfaceenviro.ca/quickbooks/callback
+      QBO_ENVIRONMENT: ${QBO_ENVIRONMENT:-production}
+      QBO_WEBHOOK_VERIFIER_TOKEN: ${QBO_WEBHOOK_VERIFIER_TOKEN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: https://api.interfaceenviro.ca/google-drive/callback
+    volumes:
+      - uploads:/app/apps/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.interfaceenviro.ca
+    restart: always
+    networks:
+      - internal
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - internal
+
+volumes:
+  postgres_data:
+  uploads:
+  certbot_www:
+
+networks:
+  internal:
