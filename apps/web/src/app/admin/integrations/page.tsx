@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import type {
   ApiResponse,
@@ -15,7 +15,7 @@ import { PageHeader, Button, ErrorAlert } from "@/components/ui";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-export default function IntegrationsPage() {
+function IntegrationsPageContent() {
   const { authenticated } = useRequireAuth();
   const { addToast } = useToast();
   const searchParams = useSearchParams();
@@ -339,6 +339,14 @@ export default function IntegrationsPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense>
+      <IntegrationsPageContent />
+    </Suspense>
   );
 }
 
