@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import type {
   ApiResponse,
@@ -27,24 +28,33 @@ import { useToast } from "@/lib/toast-context";
 
 export default function NewProjectPage() {
   const { authenticated } = useRequireAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { addToast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [budgetType, setBudgetType] = useState<"dollar" | "hours" | "none">(
+    "none",
+  );
 
   useEffect(() => {
     if (!authenticated) return;
+    if (user && !user.isAdmin) {
+      router.replace("/projects");
+      return;
+    }
     api<ApiListResponse<Client>>("/clients")
       .then((res) => setClients(res.data))
       .catch(() => {});
     api<ApiListResponse<User>>("/users")
       .then((res) => setUsers(res.data))
       .catch(() => {});
-  }, [authenticated]);
+  }, [authenticated, user, router]);
 
   if (!authenticated) return null;
+  if (user && !user.isAdmin) return null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,7 +62,7 @@ export default function NewProjectPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
-    const budgetStr = form.get("budget") as string;
+    const budgetValueStr = form.get("budgetValue") as string;
     const dto: CreateProjectDto = {
       clientId: form.get("clientId") as string,
       name: form.get("name") as string,
@@ -63,9 +73,14 @@ export default function NewProjectPage() {
         | undefined,
       startDate: (form.get("startDate") as string) || undefined,
       endDate: (form.get("endDate") as string) || undefined,
-      budgetCents: budgetStr
-        ? Math.round(parseFloat(budgetStr) * 100)
-        : undefined,
+      budgetCents:
+        budgetType === "dollar" && budgetValueStr
+          ? Math.round(parseFloat(budgetValueStr) * 100)
+          : undefined,
+      budgetHours:
+        budgetType === "hours" && budgetValueStr
+          ? parseFloat(budgetValueStr)
+          : undefined,
       projectManagerId: (form.get("projectManagerId") as string) || undefined,
     };
 
@@ -134,16 +149,50 @@ export default function NewProjectPage() {
             </FormField>
           </div>
 
-          <FormField label="Budget ($)" htmlFor="budget">
-            <Input
-              id="budget"
-              name="budget"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-            />
-          </FormField>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Budget Type
+            </label>
+            <div className="flex gap-4 mb-2">
+              {(["none", "dollar", "hours"] as const).map((t) => (
+                <label
+                  key={t}
+                  className="flex items-center gap-1.5 text-sm cursor-pointer"
+                >
+                  <input
+                    type="radio"
+                    name="budgetType"
+                    checked={budgetType === t}
+                    onChange={() => setBudgetType(t)}
+                    className="accent-emerald-600"
+                  />
+                  {t === "none"
+                    ? "None"
+                    : t === "dollar"
+                      ? "Dollar ($)"
+                      : "Hours"}
+                </label>
+              ))}
+            </div>
+            {budgetType === "dollar" && (
+              <Input
+                name="budgetValue"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+              />
+            )}
+            {budgetType === "hours" && (
+              <Input
+                name="budgetValue"
+                type="number"
+                step="0.5"
+                min="0"
+                placeholder="e.g. 200"
+              />
+            )}
+          </div>
 
           <FormField label="Project Manager" htmlFor="projectManagerId">
             <Select id="projectManagerId" name="projectManagerId">

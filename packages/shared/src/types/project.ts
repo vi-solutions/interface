@@ -43,7 +43,19 @@ export interface CreateProjectDto {
   projectManagerId?: string;
 }
 
-export interface UpdateProjectDto extends Partial<CreateProjectDto> {}
+export interface UpdateProjectDto {
+  clientId?: string;
+  name?: string;
+  code?: string;
+  description?: string;
+  status?: ProjectStatus;
+  phase?: ProjectPhase;
+  startDate?: string;
+  endDate?: string;
+  budgetCents?: number | null;
+  budgetHours?: number | null;
+  projectManagerId?: string;
+}
 
 export interface ProjectWithClient extends Project {
   client: { id: string; name: string };

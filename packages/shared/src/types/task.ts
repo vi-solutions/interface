@@ -4,6 +4,7 @@ export interface Task {
   name: string;
   description: string | null;
   budgetHours: number | null;
+  loggedHours: number;
   createdAt: string;
   updatedAt: string;
 }

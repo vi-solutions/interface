@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ApiListResponse, ProjectWithClient } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/app-shell";
 import {
   PageHeader,
@@ -17,6 +18,7 @@ import {
 
 export default function ProjectsPage() {
   const { authenticated } = useRequireAuth();
+  const { user } = useAuth();
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +37,9 @@ export default function ProjectsPage() {
     <AppShell>
       <div className="max-w-5xl mx-auto p-8">
         <PageHeader title="Projects">
-          <LinkButton href="/projects/new">New Project</LinkButton>
+          {user?.isAdmin && (
+            <LinkButton href="/projects/new">New Project</LinkButton>
+          )}
         </PageHeader>
 
         {error && <ErrorAlert message={error} />}

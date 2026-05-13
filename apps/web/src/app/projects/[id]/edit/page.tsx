@@ -27,6 +27,7 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -41,6 +42,7 @@ import {
 
 export default function EditProjectPage() {
   const { authenticated } = useRequireAuth();
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { addToast } = useToast();
@@ -57,6 +59,9 @@ export default function EditProjectPage() {
   const [globalExpenses, setGlobalExpenses] = useState<Expense[]>([]);
   const [expenseMode, setExpenseMode] = useState<"existing" | "custom">(
     "existing",
+  );
+  const [budgetType, setBudgetType] = useState<"dollar" | "hours" | "none">(
+    "none",
   );
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
@@ -122,8 +127,21 @@ export default function EditProjectPage() {
 
   useEffect(() => {
     if (!authenticated) return;
+    if (user && !user.isAdmin) {
+      router.replace(`/projects/${id}`);
+      return;
+    }
     api<ApiResponse<ProjectWithClient>>(`/projects/${id}`)
-      .then((res) => setProject(res.data))
+      .then((res) => {
+        setProject(res.data);
+        setBudgetType(
+          res.data.budgetCents != null
+            ? "dollar"
+            : res.data.budgetHours != null
+              ? "hours"
+              : "none",
+        );
+      })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Failed to load project"),
       );
@@ -146,6 +164,8 @@ export default function EditProjectPage() {
       .catch(() => {});
   }, [
     authenticated,
+    user,
+    router,
     id,
     loadProjectExpenses,
     loadMilestones,
@@ -155,6 +175,7 @@ export default function EditProjectPage() {
   ]);
 
   if (!authenticated) return null;
+  if (user && !user.isAdmin) return null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -162,7 +183,7 @@ export default function EditProjectPage() {
     setSaving(true);
 
     const form = new FormData(e.currentTarget);
-    const budgetStr = form.get("budget") as string;
+    const budgetValueStr = form.get("budgetValue") as string;
     const dto: UpdateProjectDto = {
       clientId: form.get("clientId") as string,
       name: form.get("name") as string,
@@ -174,13 +195,14 @@ export default function EditProjectPage() {
         | undefined,
       startDate: (form.get("startDate") as string) || undefined,
       endDate: (form.get("endDate") as string) || undefined,
-      budgetCents: budgetStr
-        ? Math.round(parseFloat(budgetStr) * 100)
-        : undefined,
-      budgetHours: (() => {
-        const s = form.get("budgetHours") as string;
-        return s ? parseFloat(s) : undefined;
-      })(),
+      budgetCents:
+        budgetType === "dollar" && budgetValueStr
+          ? Math.round(parseFloat(budgetValueStr) * 100)
+          : null,
+      budgetHours:
+        budgetType === "hours" && budgetValueStr
+          ? parseFloat(budgetValueStr)
+          : null,
       projectManagerId: (form.get("projectManagerId") as string) || undefined,
     };
 
@@ -307,35 +329,60 @@ export default function EditProjectPage() {
               </FormField>
             </div>
 
-            <FormField label="Budget ($)" htmlFor="budget">
-              <Input
-                id="budget"
-                name="budget"
-                type="number"
-                step="0.01"
-                min="0"
-                defaultValue={
-                  project.budgetCents != null
-                    ? (project.budgetCents / 100).toFixed(2)
-                    : ""
-                }
-                placeholder="0.00"
-              />
-            </FormField>
-
-            <FormField label="Budget (hours)" htmlFor="budgetHours">
-              <Input
-                id="budgetHours"
-                name="budgetHours"
-                type="number"
-                step="0.5"
-                min="0"
-                defaultValue={
-                  project.budgetHours != null ? String(project.budgetHours) : ""
-                }
-                placeholder="e.g. 200"
-              />
-            </FormField>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Budget Type
+              </label>
+              <div className="flex gap-4 mb-2">
+                {(["none", "dollar", "hours"] as const).map((t) => (
+                  <label
+                    key={t}
+                    className="flex items-center gap-1.5 text-sm cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="budgetType"
+                      checked={budgetType === t}
+                      onChange={() => setBudgetType(t)}
+                      className="accent-emerald-600"
+                    />
+                    {t === "none"
+                      ? "None"
+                      : t === "dollar"
+                        ? "Dollar ($)"
+                        : "Hours"}
+                  </label>
+                ))}
+              </div>
+              {budgetType === "dollar" && (
+                <Input
+                  name="budgetValue"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  defaultValue={
+                    project?.budgetCents != null
+                      ? (project.budgetCents / 100).toFixed(2)
+                      : ""
+                  }
+                />
+              )}
+              {budgetType === "hours" && (
+                <Input
+                  name="budgetValue"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="e.g. 200"
+                  defaultValue={
+                    project?.budgetHours != null
+                      ? String(project.budgetHours)
+                      : ""
+                  }
+                />
+              )}
+            </div>
 
             <FormField label="Project Manager" htmlFor="projectManagerId">
               <Select

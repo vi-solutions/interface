@@ -11,6 +11,7 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -25,6 +26,7 @@ import {
 
 export default function ContactsPage() {
   const { authenticated } = useRequireAuth();
+  const { user: currentUser } = useAuth();
   const { addToast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -132,12 +134,14 @@ export default function ContactsPage() {
     <AppShell>
       <div className="max-w-5xl mx-auto p-8">
         <PageHeader title="Contacts">
-          <Button
-            onClick={() => setShowForm((v) => !v)}
-            variant={showForm ? "secondary" : "primary"}
-          >
-            {showForm ? "Cancel" : "+ New Contact"}
-          </Button>
+          {currentUser?.isAdmin && (
+            <Button
+              onClick={() => setShowForm((v) => !v)}
+              variant={showForm ? "secondary" : "primary"}
+            >
+              {showForm ? "Cancel" : "+ New Contact"}
+            </Button>
+          )}
         </PageHeader>
 
         {error && <ErrorAlert message={error} />}
@@ -363,40 +367,42 @@ export default function ContactsPage() {
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => startEdit(c)}
-                            className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                            title="Edit"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 16 16"
-                              fill="currentColor"
-                              className="h-4 w-4"
+                        {currentUser?.isAdmin && (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => startEdit(c)}
+                              className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                              title="Edit"
                             >
-                              <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(c.id)}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                            aria-label="Delete contact"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              className="h-4 w-4"
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 16 16"
+                                fill="currentColor"
+                                className="h-4 w-4"
+                              >
+                                <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(c.id)}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              aria-label="Delete contact"
                             >
-                              <path
-                                fillRule="evenodd"
-                                d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
-                        </div>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="h-4 w-4"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ),

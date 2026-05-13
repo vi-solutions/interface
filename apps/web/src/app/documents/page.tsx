@@ -11,11 +11,13 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 
 export default function DocumentsPage() {
   const { authenticated } = useRequireAuth();
+  const { user: currentUser } = useAuth();
   const { addToast } = useToast();
   const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
@@ -79,8 +81,14 @@ export default function DocumentsPage() {
     }
   }
 
+  // For non-admins, only show documents belonging to their assigned projects
+  const projectIds = new Set(projects.map((p) => p.id));
+  const visibleDocuments = currentUser?.isAdmin
+    ? documents
+    : documents.filter((d) => projectIds.has(d.projectId));
+
   // Group by project
-  const byProject = documents.reduce<
+  const byProject = visibleDocuments.reduce<
     Record<string, { projectName: string; docs: DocumentWithDetails[] }>
   >((acc, doc) => {
     if (!acc[doc.projectId]) {
@@ -95,12 +103,14 @@ export default function DocumentsPage() {
       <div className="max-w-5xl mx-auto p-8">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold">Documents</h1>
-          <button
-            onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
-          >
-            {showForm ? "Cancel" : "+ Link Document"}
-          </button>
+          {currentUser?.isAdmin && (
+            <button
+              onClick={() => setShowForm((v) => !v)}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+            >
+              {showForm ? "Cancel" : "+ Link Document"}
+            </button>
+          )}
         </div>
         <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
           Link Google Drive documents to your projects.

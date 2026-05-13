@@ -63,12 +63,7 @@ export default function Home() {
   // Tasks with a time budget, on active projects only
   const budgetedTasks = (data?.tasks ?? [])
     .filter((t) => t.budgetHours != null && activeProjectIds.has(t.projectId))
-    .map((t) => {
-      const logged = (data?.timeEntries ?? [])
-        .filter((e) => e.taskId === t.id)
-        .reduce((sum, e) => sum + Number(e.hours), 0);
-      return { ...t, loggedHours: logged };
-    })
+    .map((t) => ({ ...t, loggedHours: Number(t.loggedHours) }))
     .sort((a, b) => {
       const aUsed = a.budgetHours! > 0 ? a.loggedHours / a.budgetHours! : 0;
       const bUsed = b.budgetHours! > 0 ? b.loggedHours / b.budgetHours! : 0;
@@ -276,8 +271,12 @@ export default function Home() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <QuickAction href="/projects/new" label="New Project" icon="+" />
-          <QuickAction href="/clients/new" label="New Client" icon="+" />
+          {user?.isAdmin && (
+            <QuickAction href="/projects/new" label="New Project" icon="+" />
+          )}
+          {user?.isAdmin && (
+            <QuickAction href="/clients/new" label="New Client" icon="+" />
+          )}
           <QuickAction href="/time" label="Log Time" icon="⏱" />
           <QuickAction href="/documents" label="Link Document" icon="📎" />
         </div>

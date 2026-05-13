@@ -54,7 +54,7 @@ export class ClientsService {
          ORDER BY created_at ASC
          LIMIT 1
        ) pc ON true
-       ORDER BY c.name`,
+       ORDER BY c.id, c.name`,
       [userId],
     );
     return rows;

@@ -64,7 +64,7 @@ export default function TimePage() {
   // Group entries by date for the timeline view
   const byDate = entries.reduce<Record<string, TimeEntryWithDetails[]>>(
     (acc, entry) => {
-      const d = entry.date;
+      const d = String(entry.date).slice(0, 10);
       if (!acc[d]) acc[d] = [];
       acc[d].push(entry);
       return acc;

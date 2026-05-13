@@ -18,20 +18,29 @@ export class TasksService {
 
   async findAll(): Promise<Task[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, project_id AS "projectId", name, description,
-              budget_hours AS "budgetHours",
-              created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM tasks ORDER BY name`,
+      `SELECT t.id, t.project_id AS "projectId", t.name, t.description,
+              t.budget_hours AS "budgetHours",
+              COALESCE(SUM(te.hours), 0) AS "loggedHours",
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt"
+       FROM tasks t
+       LEFT JOIN time_entries te ON te.task_id = t.id
+       GROUP BY t.id
+       ORDER BY t.name`,
     );
     return rows;
   }
 
   async findByProject(projectId: string): Promise<Task[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, project_id AS "projectId", name, description,
-              budget_hours AS "budgetHours",
-              created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM tasks WHERE project_id = $1 ORDER BY name`,
+      `SELECT t.id, t.project_id AS "projectId", t.name, t.description,
+              t.budget_hours AS "budgetHours",
+              COALESCE(SUM(te.hours), 0) AS "loggedHours",
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt"
+       FROM tasks t
+       LEFT JOIN time_entries te ON te.task_id = t.id
+       WHERE t.project_id = $1
+       GROUP BY t.id
+       ORDER BY t.name`,
       [projectId],
     );
     return rows;
@@ -39,10 +48,14 @@ export class TasksService {
 
   async findById(id: string): Promise<Task> {
     const { rows } = await this.pool.query(
-      `SELECT id, project_id AS "projectId", name, description,
-              budget_hours AS "budgetHours",
-              created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM tasks WHERE id = $1`,
+      `SELECT t.id, t.project_id AS "projectId", t.name, t.description,
+              t.budget_hours AS "budgetHours",
+              COALESCE(SUM(te.hours), 0) AS "loggedHours",
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt"
+       FROM tasks t
+       LEFT JOIN time_entries te ON te.task_id = t.id
+       WHERE t.id = $1
+       GROUP BY t.id`,
       [id],
     );
     if (!rows[0]) throw new NotFoundException("Task not found");

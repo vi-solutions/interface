@@ -123,7 +123,7 @@ export class ProjectsService {
         dto.phase ?? existing.phase,
         dto.startDate ?? existing.startDate,
         dto.endDate ?? existing.endDate,
-        dto.budgetCents ?? existing.budgetCents,
+        dto.budgetCents !== undefined ? dto.budgetCents : existing.budgetCents,
         dto.budgetHours !== undefined ? dto.budgetHours : existing.budgetHours,
         dto.projectManagerId !== undefined
           ? dto.projectManagerId || null

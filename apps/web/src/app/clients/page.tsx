@@ -8,6 +8,7 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/app-shell";
 import {
   PageHeader,
@@ -19,6 +20,7 @@ import {
 
 export default function ClientsPage() {
   const { authenticated } = useRequireAuth();
+  const { user } = useAuth();
   const [clients, setClients] = useState<ClientWithPrimaryContact[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +39,9 @@ export default function ClientsPage() {
     <AppShell>
       <div className="max-w-5xl mx-auto p-8">
         <PageHeader title="Clients">
-          <LinkButton href="/clients/new">New Client</LinkButton>
+          {user?.isAdmin && (
+            <LinkButton href="/clients/new">New Client</LinkButton>
+          )}
         </PageHeader>
 
         {error && <ErrorAlert message={error} />}

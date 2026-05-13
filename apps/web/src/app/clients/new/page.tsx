@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import type { ApiResponse, Client, CreateClientDto } from "@interface/shared";
 import { AppShell } from "@/components/app-shell";
@@ -18,12 +19,19 @@ import { useToast } from "@/lib/toast-context";
 
 export default function NewClientPage() {
   const { authenticated } = useRequireAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { addToast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (!authenticated) return;
+    if (user && !user.isAdmin) router.replace("/clients");
+  }, [authenticated, user, router]);
+
   if (!authenticated) return null;
+  if (user && !user.isAdmin) return null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

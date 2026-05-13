@@ -232,6 +232,14 @@ export default function ProjectDetailPage() {
     project?.budgetCents && project.budgetCents > 0
       ? Math.min(100, (budgetUsedCents / project.budgetCents) * 100)
       : null;
+  const budgetHoursRemaining =
+    project?.budgetHours != null
+      ? Number(project.budgetHours) - totalHours
+      : null;
+  const budgetHoursPct =
+    project?.budgetHours && Number(project.budgetHours) > 0
+      ? Math.min(100, (totalHours / Number(project.budgetHours)) * 100)
+      : null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -332,12 +340,14 @@ export default function ProjectDetailPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Link
-                  href={`/projects/${id}/edit`}
-                  className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Edit
-                </Link>
+                {currentUser?.isAdmin && (
+                  <Link
+                    href={`/projects/${id}/edit`}
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Edit
+                  </Link>
+                )}
                 <span className="rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-xs font-medium px-3 py-1">
                   {project.status}
                 </span>
@@ -436,36 +446,40 @@ export default function ProjectDetailPage() {
               <div className="mb-10 space-y-6">
                 {/* Financial summary cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Revenue
-                    </p>
-                    <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                      $
-                      {(revenueCents / 100).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {totalBillable.toFixed(1)}h billable
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Labor Cost
-                    </p>
-                    <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                      $
-                      {(laborCostCents / 100).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {totalHours.toFixed(1)}h total
-                    </p>
-                  </div>
+                  {currentUser?.isAdmin && (
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Revenue
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        $
+                        {(revenueCents / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {totalBillable.toFixed(1)}h billable
+                      </p>
+                    </div>
+                  )}
+                  {currentUser?.isAdmin && (
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Labor Cost
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        $
+                        {(laborCostCents / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {totalHours.toFixed(1)}h total
+                      </p>
+                    </div>
+                  )}
                   {currentUser?.isAdmin && (
                     <div
                       className={`rounded-lg border p-4 ${
@@ -503,8 +517,8 @@ export default function ProjectDetailPage() {
                   )}
                 </div>
 
-                {/* Budget row — only shown when a budget is set */}
-                {project.budgetCents != null && (
+                {/* Admin: dollar budget row */}
+                {currentUser?.isAdmin && project.budgetCents != null && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -603,6 +617,124 @@ export default function ProjectDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Admin: hours budget row */}
+                {currentUser?.isAdmin && project.budgetHours != null && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Budget
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        {Number(project.budgetHours).toFixed(0)}h
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Total Hours
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        {totalHours.toFixed(1)}h
+                      </p>
+                    </div>
+                    <div
+                      className={`rounded-lg border p-4 ${
+                        budgetHoursRemaining != null &&
+                        budgetHoursRemaining >= 0
+                          ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20"
+                          : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                      }`}
+                    >
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Hours Remaining
+                      </p>
+                      <p
+                        className={`mt-1 text-xl font-bold tabular-nums ${
+                          budgetHoursRemaining != null &&
+                          budgetHoursRemaining >= 0
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        {budgetHoursRemaining != null
+                          ? `${budgetHoursRemaining < 0 ? "−" : ""}${Math.abs(budgetHoursRemaining).toFixed(1)}h`
+                          : "—"}
+                      </p>
+                      {budgetHoursPct != null && (
+                        <div className="mt-2">
+                          <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                            <div
+                              className={`h-1.5 rounded-full ${
+                                budgetHoursPct >= 90
+                                  ? "bg-red-500"
+                                  : budgetHoursPct >= 70
+                                    ? "bg-amber-500"
+                                    : "bg-emerald-500"
+                              }`}
+                              style={{ width: `${budgetHoursPct}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {budgetHoursPct.toFixed(0)}% used
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Employee: budget % only */}
+                {!currentUser?.isAdmin &&
+                  (project.budgetCents != null ||
+                    project.budgetHours != null) && (
+                    <div className="grid grid-cols-1 gap-4">
+                      <div
+                        className={`rounded-lg border p-4 ${
+                          (budgetHoursPct ?? budgetPct ?? 0) < 90
+                            ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                            : (budgetHoursPct ?? budgetPct ?? 0) < 100
+                              ? "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20"
+                              : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                        }`}
+                      >
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Budget
+                        </p>
+                        {project.budgetHours != null ? (
+                          <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                            {totalHours.toFixed(1)} /{" "}
+                            {Number(project.budgetHours).toFixed(0)}h
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                            {(budgetPct ?? 0).toFixed(0)}% used
+                          </p>
+                        )}
+                        {(budgetHoursPct ?? budgetPct) != null && (
+                          <div className="mt-2">
+                            <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                              <div
+                                className={`h-1.5 rounded-full ${
+                                  (budgetHoursPct ?? budgetPct ?? 0) >= 90
+                                    ? "bg-red-500"
+                                    : (budgetHoursPct ?? budgetPct ?? 0) >= 70
+                                      ? "bg-amber-500"
+                                      : "bg-emerald-500"
+                                }`}
+                                style={{
+                                  width: `${budgetHoursPct ?? budgetPct}%`,
+                                }}
+                              />
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {(budgetHoursPct ?? budgetPct ?? 0).toFixed(0)}%
+                              used
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                 {/* ── Notes ─────────────────────────────────────────── */}
                 <section className="mb-10">
@@ -866,7 +998,7 @@ export default function ProjectDetailPage() {
                 </div>
               )}
 
-              {!project.code && (
+              {currentUser?.isAdmin && !project.code && (
                 <div className="mb-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
                   Set a project code on the{" "}
                   <Link
@@ -896,288 +1028,293 @@ export default function ProjectDetailPage() {
             </section>
 
             {/* ── User Expenses ─────────────────────────────────── */}
-            <section className="mb-10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Expenses</h2>
-                <button
-                  onClick={() => setShowExpenseForm((v) => !v)}
-                  className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
-                >
-                  {showExpenseForm ? "Cancel" : "+ Log Expense"}
-                </button>
-              </div>
+            {currentUser?.isAdmin && (
+              <section className="mb-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Expenses</h2>
+                  <button
+                    onClick={() => setShowExpenseForm((v) => !v)}
+                    className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
+                  >
+                    {showExpenseForm ? "Cancel" : "+ Log Expense"}
+                  </button>
+                </div>
 
-              {showExpenseForm && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setSavingExpense(true);
-                    const form = new FormData(e.currentTarget);
-                    const peId = form.get("projectExpenseId") as string;
-                    const pe = projectExpenses.find((p) => p.id === peId);
-                    const valueStr = form.get("amount") as string;
-                    const value = parseFloat(valueStr);
-                    let totalCents: number;
-                    let quantity: number | undefined;
+                {showExpenseForm && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setSavingExpense(true);
+                      const form = new FormData(e.currentTarget);
+                      const peId = form.get("projectExpenseId") as string;
+                      const pe = projectExpenses.find((p) => p.id === peId);
+                      const valueStr = form.get("amount") as string;
+                      const value = parseFloat(valueStr);
+                      let totalCents: number;
+                      let quantity: number | undefined;
 
-                    if (pe?.type === "dollar") {
-                      totalCents = Math.round(value * 100);
-                    } else {
-                      quantity = value;
-                      totalCents = Math.round(value * (pe?.rateCents ?? 0));
-                    }
+                      if (pe?.type === "dollar") {
+                        totalCents = Math.round(value * 100);
+                      } else {
+                        quantity = value;
+                        totalCents = Math.round(value * (pe?.rateCents ?? 0));
+                      }
 
-                    const dto: CreateUserExpenseDto = {
-                      projectId: id,
-                      userId: currentUser?.isAdmin
-                        ? (form.get("userId") as string)
-                        : (currentUser?.id ?? ""),
-                      projectExpenseId: peId,
-                      date: form.get("date") as string,
-                      quantity,
-                      totalCents,
-                      notes: (form.get("notes") as string) || undefined,
-                    };
-                    try {
-                      await api<ApiResponse<UserExpenseWithDetails>>(
-                        "/user-expenses",
-                        { method: "POST", body: JSON.stringify(dto) },
-                      );
-                      addToast("Expense logged");
-                      setShowExpenseForm(false);
-                      loadUserExpenses();
-                    } catch (err) {
-                      addToast(
-                        err instanceof Error
-                          ? err.message
-                          : "Failed to log expense",
-                        "error",
-                      );
-                    } finally {
-                      setSavingExpense(false);
-                    }
-                  }}
-                  className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
-                >
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Expense Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="projectExpenseId"
-                      required
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    >
-                      <option value="">Select…</option>
-                      {projectExpenses.map((pe) => (
-                        <option key={pe.id} value={pe.id}>
-                          {pe.name}{" "}
-                          {pe.type !== "dollar" &&
-                            `($${(pe.rateCents / 100).toFixed(2)}/${pe.type === "per_km" ? "km" : "day"})`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {currentUser?.isAdmin ? (
+                      const dto: CreateUserExpenseDto = {
+                        projectId: id,
+                        userId: currentUser?.isAdmin
+                          ? (form.get("userId") as string)
+                          : (currentUser?.id ?? ""),
+                        projectExpenseId: peId,
+                        date: form.get("date") as string,
+                        quantity,
+                        totalCents,
+                        notes: (form.get("notes") as string) || undefined,
+                      };
+                      try {
+                        await api<ApiResponse<UserExpenseWithDetails>>(
+                          "/user-expenses",
+                          { method: "POST", body: JSON.stringify(dto) },
+                        );
+                        addToast("Expense logged");
+                        setShowExpenseForm(false);
+                        loadUserExpenses();
+                      } catch (err) {
+                        addToast(
+                          err instanceof Error
+                            ? err.message
+                            : "Failed to log expense",
+                          "error",
+                        );
+                      } finally {
+                        setSavingExpense(false);
+                      }
+                    }}
+                    className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 grid gap-4 sm:grid-cols-2"
+                  >
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Employee <span className="text-red-500">*</span>
+                        Expense Type <span className="text-red-500">*</span>
                       </label>
                       <select
-                        name="userId"
+                        name="projectExpenseId"
                         required
-                        defaultValue={currentUser?.id ?? ""}
                         className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                       >
                         <option value="">Select…</option>
-                        {users.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
+                        {projectExpenses.map((pe) => (
+                          <option key={pe.id} value={pe.id}>
+                            {pe.name}{" "}
+                            {pe.type !== "dollar" &&
+                              `($${(pe.rateCents / 100).toFixed(2)}/${pe.type === "per_km" ? "km" : "day"})`}
                           </option>
                         ))}
                       </select>
                     </div>
-                  ) : (
+
+                    {currentUser?.isAdmin ? (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Employee <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          name="userId"
+                          required
+                          defaultValue={currentUser?.id ?? ""}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        >
+                          <option value="">Select…</option>
+                          {users.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Employee
+                        </label>
+                        <p className="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 py-2 text-sm">
+                          {currentUser?.name}
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Employee
+                        Date <span className="text-red-500">*</span>
                       </label>
-                      <p className="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 px-3 py-2 text-sm">
-                        {currentUser?.name}
-                      </p>
+                      <input
+                        name="date"
+                        type="date"
+                        required
+                        defaultValue={new Date().toISOString().slice(0, 10)}
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="date"
-                      type="date"
-                      required
-                      defaultValue={new Date().toISOString().slice(0, 10)}
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Amount ($) / Quantity{" "}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        name="amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        placeholder="0.00"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Amount ($) / Quantity{" "}
-                      <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      required
-                      placeholder="0.00"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium mb-1">
+                        Notes
+                      </label>
+                      <input
+                        name="notes"
+                        placeholder="Optional notes"
+                        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
 
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium mb-1">
-                      Notes
-                    </label>
-                    <input
-                      name="notes"
-                      placeholder="Optional notes"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
-                  </div>
+                    <div className="sm:col-span-2">
+                      <button
+                        type="submit"
+                        disabled={savingExpense}
+                        className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                      >
+                        {savingExpense ? "Logging…" : "Log Expense"}
+                      </button>
+                    </div>
+                  </form>
+                )}
 
-                  <div className="sm:col-span-2">
-                    <button
-                      type="submit"
-                      disabled={savingExpense}
-                      className="rounded-lg bg-emerald-600 px-6 py-2 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                    >
-                      {savingExpense ? "Logging…" : "Log Expense"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {userExpenses.length === 0 && !showExpenseForm ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No expenses logged yet. Click &quot;+ Log Expense&quot; to add
-                  one.
-                </p>
-              ) : userExpenses.length > 0 ? (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Date
-                        </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Expense
-                        </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Employee
-                        </th>
-                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Qty
-                        </th>
-                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Total
-                        </th>
-                        <th className="px-4 py-2.5">
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {userExpenses.map((ue) => (
-                        <tr
-                          key={ue.id}
-                          className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-                        >
-                          <td className="px-4 py-2.5">
-                            {new Date(ue.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-2.5 font-medium">
-                            {ue.expenseName}
-                            {ue.notes && (
-                              <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
-                                {ue.notes}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                            {ue.user.name}
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums">
-                            {ue.expenseType === "dollar"
-                              ? "—"
-                              : ue.quantity != null
-                                ? `${Number(ue.quantity)}${ue.expenseType === "per_km" ? " km" : " days"}`
-                                : "—"}
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                            ${(ue.totalCents / 100).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await api(`/user-expenses/${ue.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  addToast("Expense deleted");
-                                  loadUserExpenses();
-                                } catch {
-                                  addToast("Failed to delete expense", "error");
-                                }
-                              }}
-                              className="text-gray-400 hover:text-red-500 transition-colors"
-                              aria-label="Delete expense"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                                className="h-4 w-4"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </button>
-                          </td>
+                {userExpenses.length === 0 && !showExpenseForm ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    No expenses logged yet. Click &quot;+ Log Expense&quot; to
+                    add one.
+                  </p>
+                ) : userExpenses.length > 0 ? (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Date
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Expense
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Employee
+                          </th>
+                          <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Qty
+                          </th>
+                          <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Total
+                          </th>
+                          <th className="px-4 py-2.5">
+                            <span className="sr-only">Actions</span>
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <td
-                          colSpan={4}
-                          className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400"
-                        >
-                          Total
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-bold">
-                          $
-                          {(
-                            userExpenses.reduce(
-                              (sum, ue) => sum + Number(ue.totalCents ?? 0),
-                              0,
-                            ) / 100
-                          ).toFixed(2)}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              ) : null}
-            </section>
+                      </thead>
+                      <tbody>
+                        {userExpenses.map((ue) => (
+                          <tr
+                            key={ue.id}
+                            className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                          >
+                            <td className="px-4 py-2.5">
+                              {new Date(ue.date).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-2.5 font-medium">
+                              {ue.expenseName}
+                              {ue.notes && (
+                                <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                                  {ue.notes}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                              {ue.user.name}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums">
+                              {ue.expenseType === "dollar"
+                                ? "—"
+                                : ue.quantity != null
+                                  ? `${Number(ue.quantity)}${ue.expenseType === "per_km" ? " km" : " days"}`
+                                  : "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                              ${(ue.totalCents / 100).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await api(`/user-expenses/${ue.id}`, {
+                                      method: "DELETE",
+                                    });
+                                    addToast("Expense deleted");
+                                    loadUserExpenses();
+                                  } catch {
+                                    addToast(
+                                      "Failed to delete expense",
+                                      "error",
+                                    );
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-red-500 transition-colors"
+                                aria-label="Delete expense"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                  className="h-4 w-4"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                          <td
+                            colSpan={4}
+                            className="px-4 py-2.5 text-right font-medium text-gray-500 dark:text-gray-400"
+                          >
+                            Total
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums font-bold">
+                            $
+                            {(
+                              userExpenses.reduce(
+                                (sum, ue) => sum + Number(ue.totalCents ?? 0),
+                                0,
+                              ) / 100
+                            ).toFixed(2)}
+                          </td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : null}
+              </section>
+            )}
 
             {/* ── Time Tracking ────────────────────────────────── */}
             <section>
@@ -1303,7 +1440,7 @@ export default function ProjectDetailPage() {
               )}
 
               {/* ── Summary by Employee ── */}
-              {entries.length > 0 && (
+              {entries.length > 0 && currentUser?.isAdmin && (
                 <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
@@ -1423,90 +1560,96 @@ export default function ProjectDetailPage() {
               )}
 
               {/* ── Individual Entries ── */}
-              {entries.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  No time entries yet. Click &quot;+ Log Time&quot; to add one.
-                </p>
-              ) : (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Date
-                        </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Task
-                        </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Employee
-                        </th>
-                        <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Description
-                        </th>
-                        <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Hours
-                        </th>
-                        <th className="text-center px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
-                          Billable
-                        </th>
-                        <th className="px-4 py-2.5">
-                          <span className="sr-only">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((entry) => (
-                        <tr
-                          key={entry.id}
-                          className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-                        >
-                          <td className="px-4 py-2.5 whitespace-nowrap">
-                            {new Date(entry.date).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                            {entry.task?.name || "—"}
-                          </td>
-                          <td className="px-4 py-2.5">{entry.user.name}</td>
-                          <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                            {entry.description || "—"}
-                          </td>
-                          <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                            {Number(entry.hours).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
-                            {entry.billable ? (
-                              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                            ) : (
-                              <span className="inline-block h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <button
-                              onClick={() => handleDelete(entry.id)}
-                              className="text-gray-400 hover:text-red-500 transition-colors"
-                              aria-label="Delete entry"
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                                className="h-4 w-4"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </button>
-                          </td>
+              {(() => {
+                const visibleEntries = currentUser?.isAdmin
+                  ? entries
+                  : entries.filter((e) => e.userId === currentUser?.id);
+                return visibleEntries.length === 0 ? (
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    No time entries yet. Click &quot;+ Log Time&quot; to add
+                    one.
+                  </p>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Date
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Task
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Employee
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Description
+                          </th>
+                          <th className="text-right px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Hours
+                          </th>
+                          <th className="text-center px-4 py-2.5 font-medium text-gray-500 dark:text-gray-400">
+                            Billable
+                          </th>
+                          <th className="px-4 py-2.5">
+                            <span className="sr-only">Actions</span>
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {visibleEntries.map((entry) => (
+                          <tr
+                            key={entry.id}
+                            className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                          >
+                            <td className="px-4 py-2.5 whitespace-nowrap">
+                              {new Date(entry.date).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                              {entry.task?.name || "—"}
+                            </td>
+                            <td className="px-4 py-2.5">{entry.user.name}</td>
+                            <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                              {entry.description || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                              {Number(entry.hours).toFixed(2)}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              {entry.billable ? (
+                                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                              ) : (
+                                <span className="inline-block h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <button
+                                onClick={() => handleDelete(entry.id)}
+                                className="text-gray-400 hover:text-red-500 transition-colors"
+                                aria-label="Delete entry"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                  className="h-4 w-4"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </section>
           </>
         )}

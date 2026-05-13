@@ -13,6 +13,8 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Button, ErrorAlert } from "@/components/ui";
@@ -21,6 +23,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 function IntegrationsPageContent() {
   const { authenticated } = useRequireAuth();
+  const { user } = useAuth();
+  const router = useRouter();
   const { addToast } = useToast();
   const searchParams = useSearchParams();
   const [connection, setConnection] = useState<QboConnection | null>(null);
@@ -61,6 +65,10 @@ function IntegrationsPageContent() {
 
   useEffect(() => {
     if (!authenticated) return;
+    if (user && !user.isAdmin) {
+      router.replace("/");
+      return;
+    }
 
     if (searchParams.get("qbo") === "connected") {
       addToast("QuickBooks connected successfully");
@@ -94,7 +102,7 @@ function IntegrationsPageContent() {
     api<ApiListResponse<Project>>("/projects")
       .then((res) => setAppProjects(res.data))
       .catch(() => {});
-  }, [authenticated, searchParams, addToast]);
+  }, [authenticated, user, router, searchParams, addToast]);
 
   async function handleDisconnect() {
     try {

@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const authRes = await login(email, password);
-      router.push(authRes.user.isAdmin ? "/" : "/mobile");
+      router.push(authRes.user.role === "contractor" ? "/mobile" : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
