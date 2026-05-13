@@ -6,7 +6,9 @@ import {
   Delete,
   Param,
   Body,
+  Req,
 } from "@nestjs/common";
+import { Request } from "express";
 import { ClientsService } from "./clients.service";
 import type {
   CreateClientDto,
@@ -22,9 +24,20 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
-  async findAll(): Promise<ApiListResponse<ClientWithPrimaryContact>> {
-    const data = await this.clientsService.findAll();
-    return { data, total: data.length };
+  async findAll(
+    @Req()
+    req: Request & { user: { sub: string; role: string; isAdmin: boolean } },
+  ): Promise<ApiListResponse<ClientWithPrimaryContact>> {
+    if (req.user.isAdmin) {
+      const data = await this.clientsService.findAll();
+      return { data, total: data.length };
+    }
+    if (req.user.role === "employee") {
+      const data = await this.clientsService.findByUser(req.user.sub);
+      return { data, total: data.length };
+    }
+    // contractor: no access to clients list
+    return { data: [], total: 0 };
   }
 
   @Get(":id")

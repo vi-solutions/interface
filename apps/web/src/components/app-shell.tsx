@@ -12,12 +12,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && user && !user.isAdmin) {
+    if (!loading && user && user.role === "contractor") {
       router.replace("/mobile");
     }
   }, [loading, user, router]);
 
-  if (loading || (user && !user.isAdmin)) return null;
+  if (loading || (user && user.role === "contractor")) return null;
 
   return (
     <div className="min-h-screen">

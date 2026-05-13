@@ -466,36 +466,41 @@ export default function ProjectDetailPage() {
                       {totalHours.toFixed(1)}h total
                     </p>
                   </div>
-                  <div
-                    className={`rounded-lg border p-4 ${
-                      netProfitCents >= 0
-                        ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20"
-                        : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
-                    }`}
-                  >
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Net Profit
-                    </p>
-                    <p
-                      className={`mt-1 text-xl font-bold tabular-nums ${
+                  {currentUser?.isAdmin && (
+                    <div
+                      className={`rounded-lg border p-4 ${
                         netProfitCents >= 0
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-red-700 dark:text-red-300"
+                          ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20"
+                          : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
                       }`}
                     >
-                      {netProfitCents < 0 ? "−" : ""}$
-                      {(Math.abs(netProfitCents) / 100).toLocaleString(
-                        undefined,
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-                      )}
-                    </p>
-                    {revenueCents > 0 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {((netProfitCents / revenueCents) * 100).toFixed(0)}%
-                        margin
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Net Profit
                       </p>
-                    )}
-                  </div>
+                      <p
+                        className={`mt-1 text-xl font-bold tabular-nums ${
+                          netProfitCents >= 0
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        {netProfitCents < 0 ? "−" : ""}$
+                        {(Math.abs(netProfitCents) / 100).toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}
+                      </p>
+                      {revenueCents > 0 && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {((netProfitCents / revenueCents) * 100).toFixed(0)}%
+                          margin
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Budget row — only shown when a budget is set */}

@@ -11,6 +11,8 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -33,6 +35,8 @@ const TYPE_LABELS: Record<ExpenseType, string> = {
 
 export default function ExpensesPage() {
   const { authenticated } = useRequireAuth();
+  const { user: currentUser } = useAuth();
+  const router = useRouter();
   const { addToast } = useToast();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +54,14 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (!authenticated) return;
+    if (currentUser && !currentUser.isAdmin) {
+      router.push("/");
+      return;
+    }
     loadExpenses();
-  }, [authenticated]);
+  }, [authenticated, currentUser, router]);
+
+  if (!authenticated || !currentUser?.isAdmin) return null;
 
   if (!authenticated) return null;
 

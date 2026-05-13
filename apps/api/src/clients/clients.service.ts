@@ -35,6 +35,31 @@ export class ClientsService {
     return rows;
   }
 
+  async findByUser(userId: string): Promise<ClientWithPrimaryContact[]> {
+    const { rows } = await this.pool.query(
+      `SELECT DISTINCT ON (c.id) c.id, c.name, c.address, c.notes,
+              c.qbo_customer_id AS "qboCustomerId",
+              c.created_at AS "createdAt", c.updated_at AS "updatedAt",
+              CASE WHEN pc.id IS NOT NULL
+                THEN json_build_object('id', pc.id, 'name', pc.name, 'email', pc.email, 'title', pc.title)
+                ELSE NULL
+              END AS "primaryContact"
+       FROM clients c
+       JOIN projects p ON p.client_id = c.id
+       JOIN project_user_rates pur ON pur.project_id = p.id AND pur.user_id = $1
+       LEFT JOIN LATERAL (
+         SELECT id, name, email, title
+         FROM contacts
+         WHERE client_id = c.id
+         ORDER BY created_at ASC
+         LIMIT 1
+       ) pc ON true
+       ORDER BY c.name`,
+      [userId],
+    );
+    return rows;
+  }
+
   async findById(id: string): Promise<Client> {
     const { rows } = await this.pool.query(
       `SELECT id, name, address, notes,

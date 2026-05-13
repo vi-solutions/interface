@@ -21,6 +21,7 @@ import type {
   TimeEntry,
   TimeEntryWithUser,
   TimeEntryWithDetails,
+  TimeEntryReportEntry,
 } from "@interface/shared";
 
 @Controller("time-entries")
@@ -36,15 +37,36 @@ export class TimeEntriesController {
     @Query("userId") userId?: string,
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
+    @Req() req?: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<TimeEntryWithUser | TimeEntryWithDetails>> {
     if (projectId) {
       const data = await this.timeEntriesService.findByProject(projectId);
       return { data, total: data.length };
     }
+    // Non-admin can only see their own entries
+    const effectiveUserId = req?.user?.isAdmin ? userId : req?.user?.sub;
     const data = await this.timeEntriesService.findRecent({
       startDate,
       endDate,
+      userId: effectiveUserId,
+    });
+    return { data, total: data.length };
+  }
+
+  @Get("report")
+  async report(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Query("userId") userId: string | undefined,
+    @Query("clientId") clientId: string | undefined,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
+  ): Promise<ApiListResponse<TimeEntryReportEntry>> {
+    if (!req.user.isAdmin) throw new ForbiddenException();
+    const data = await this.timeEntriesService.findReport({
+      startDate,
+      endDate,
       userId,
+      clientId,
     });
     return { data, total: data.length };
   }

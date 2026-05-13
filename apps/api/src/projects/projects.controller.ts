@@ -7,7 +7,9 @@ import {
   Param,
   Body,
   Query,
+  Req,
 } from "@nestjs/common";
+import { Request } from "express";
 import { ProjectsService } from "./projects.service";
 import type {
   CreateProjectDto,
@@ -25,9 +27,12 @@ export class ProjectsController {
   @Get()
   async findAll(
     @Query("userId") userId?: string,
+    @Req() req?: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<ProjectWithClient>> {
-    const data = userId
-      ? await this.projectsService.findByUser(userId)
+    // Non-admin users always see only their assigned projects
+    const effectiveUserId = req?.user?.isAdmin ? userId : req?.user?.sub;
+    const data = effectiveUserId
+      ? await this.projectsService.findByUser(effectiveUserId)
       : await this.projectsService.findAll();
     return { data, total: data.length };
   }

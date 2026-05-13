@@ -33,3 +33,10 @@ export interface TimeEntryWithDetails extends TimeEntry {
   project: { id: string; name: string };
   task: { id: string; name: string } | null;
 }
+
+export interface TimeEntryReportEntry extends TimeEntry {
+  user: { id: string; name: string };
+  project: { id: string; name: string };
+  client: { id: string; name: string };
+  task: { id: string; name: string } | null;
+}

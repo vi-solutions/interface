@@ -14,6 +14,7 @@ import type {
   ApiListResponse,
   ApiResponse,
   User,
+  UserRole,
   CreateUserDto,
   UpdateUserDto,
 } from "@interface/shared";
@@ -47,8 +48,9 @@ export class UsersController {
       body.rateCents,
       body.dailyRateCents,
       body.hourlyCostCents,
+      body.role ?? (body.isAdmin ? "admin" : "contractor"),
     );
-    if (body.isAdmin) {
+    if (body.isAdmin && user.role !== "admin") {
       return { data: await this.usersService.setAdmin(user.id, true) };
     }
     return { data: user };
@@ -63,6 +65,17 @@ export class UsersController {
     if (!req.user.isAdmin)
       throw new ForbiddenException("Admin access required");
     return { data: await this.usersService.update(id, body) };
+  }
+
+  @Put(":id/role")
+  async setRole(
+    @Param("id") id: string,
+    @Body() body: { role: UserRole },
+    @Request() req: { user: { sub: string; isAdmin: boolean } },
+  ): Promise<ApiResponse<User>> {
+    if (!req.user.isAdmin)
+      throw new ForbiddenException("Admin access required");
+    return { data: await this.usersService.update(id, { role: body.role }) };
   }
 
   @Put(":id/admin")

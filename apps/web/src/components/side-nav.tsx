@@ -5,18 +5,29 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/logo";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: HomeIcon },
+// Items visible to all roles
+const ALL_ROLES_ITEMS = [
   { href: "/projects", label: "Projects", icon: FolderIcon },
-  { href: "/clients", label: "Clients", icon: UsersIcon },
   { href: "/contacts", label: "Contacts", icon: ContactIcon },
   { href: "/documents", label: "Documents", icon: DocumentIcon },
   { href: "/time", label: "Time", icon: ClockIcon },
+];
+
+// Items visible to employee + admin (not contractor)
+const EMPLOYEE_ITEMS = [
+  { href: "/", label: "Dashboard", icon: HomeIcon },
+  { href: "/clients", label: "Clients", icon: UsersIcon },
+];
+
+// Items visible to admin only
+const ADMIN_NAV_ITEMS = [
   { href: "/expenses", label: "Expenses", icon: CurrencyIcon },
-  { href: "/time-categories", label: "Time Categories", icon: TagIcon },
   { href: "/payroll", label: "Payroll", icon: PayrollIcon },
+  { href: "/reports", label: "Reports", icon: ReportsIcon },
   { href: "/invoices", label: "Invoices", icon: InvoiceIcon },
-  { href: "/mobile", label: "Mobile View", icon: PhoneIcon },
+  { href: "/users", label: "Users", icon: ShieldIcon },
+  { href: "/admin/integrations", label: "Integrations", icon: LinkIcon },
+  { href: "/harvest-import", label: "Harvest Import", icon: HarvestIcon },
 ];
 
 export function SideNav({
@@ -69,7 +80,29 @@ export function SideNav({
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_ITEMS.map((item) => {
+          {/* Employee + admin items (not contractor) */}
+          {user.role !== "contractor" &&
+            EMPLOYEE_ITEMS.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                      : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+
+          {/* All roles */}
+          {ALL_ROLES_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
@@ -88,46 +121,42 @@ export function SideNav({
             );
           })}
 
-          {user.isAdmin && (
-            <>
-              <Link
-                href="/users"
-                onClick={onClose}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive("/users")
-                    ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
-                    : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-                }`}
-              >
-                <ShieldIcon className="h-5 w-5" />
-                Users
-              </Link>
-              <Link
-                href="/admin/integrations"
-                onClick={onClose}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive("/admin/integrations")
-                    ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
-                    : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-                }`}
-              >
-                <LinkIcon className="h-5 w-5" />
-                Integrations
-              </Link>
-              <Link
-                href="/harvest-import"
-                onClick={onClose}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive("/harvest-import")
-                    ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
-                    : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-                }`}
-              >
-                <HarvestIcon className="h-5 w-5" />
-                Harvest Import
-              </Link>
-            </>
+          {/* Contractor-only: Mobile View */}
+          {user.role === "contractor" && (
+            <Link
+              href="/mobile"
+              onClick={onClose}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive("/mobile")
+                  ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                  : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+              }`}
+            >
+              <PhoneIcon className="h-5 w-5" />
+              Mobile View
+            </Link>
           )}
+
+          {/* Admin-only items */}
+          {user.isAdmin &&
+            ADMIN_NAV_ITEMS.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-white/15 text-white dark:bg-emerald-950/50 dark:text-emerald-300"
+                      : "text-emerald-100 hover:bg-white/10 hover:text-white dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
         </nav>
 
         {/* User section */}
@@ -365,6 +394,19 @@ function PhoneIcon({ className }: { className?: string }) {
         d="M8 1a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H8Zm1 14a1 1 0 1 0 2 0 1 1 0 0 0-2 0Z"
         clipRule="evenodd"
       />
+    </svg>
+  );
+}
+
+function ReportsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h1a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16.5 2h-1ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h1a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10.5 6h-1ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h1A1.5 1.5 0 0 0 6 16.5v-5A1.5 1.5 0 0 0 4.5 10h-1Z" />
     </svg>
   );
 }

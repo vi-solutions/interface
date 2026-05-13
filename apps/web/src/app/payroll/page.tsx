@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ApiListResponse, TimeEntryWithDetails } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Button, Card } from "@/components/ui";
 
@@ -125,6 +127,8 @@ function exportCsv(
 
 export default function PayrollPage() {
   const { authenticated } = useRequireAuth();
+  const { user: currentUser } = useAuth();
+  const router = useRouter();
 
   const [periodStart, setPeriodStart] = useState(currentPeriod()[0]);
   const [periodEnd, setPeriodEnd] = useState(currentPeriod()[1]);
@@ -134,7 +138,14 @@ export default function PayrollPage() {
 
   const periods = recentPeriods();
 
-  if (!authenticated) return null;
+  useEffect(() => {
+    if (!authenticated) return;
+    if (currentUser && !currentUser.isAdmin) {
+      router.push("/");
+    }
+  }, [authenticated, currentUser, router]);
+
+  if (!authenticated || !currentUser?.isAdmin) return null;
 
   async function handleLoad() {
     setLoading(true);

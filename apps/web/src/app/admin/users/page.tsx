@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { ApiListResponse, ApiResponse, User } from "@interface/shared";
+import type {
+  ApiListResponse,
+  ApiResponse,
+  User,
+  UserRole,
+} from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
@@ -35,17 +40,17 @@ export default function AdminUsersPage() {
 
   if (!authenticated || !currentUser?.isAdmin) return null;
 
-  async function toggleAdmin(userId: string, isAdmin: boolean) {
+  async function setRole(userId: string, role: UserRole) {
     try {
-      await api<ApiResponse<User>>(`/users/${userId}/admin`, {
+      await api<ApiResponse<User>>(`/users/${userId}/role`, {
         method: "PUT",
-        body: JSON.stringify({ isAdmin }),
+        body: JSON.stringify({ role }),
       });
-      addToast(isAdmin ? "User promoted to admin" : "Admin access removed");
+      addToast("Role updated");
       loadUsers();
     } catch (err) {
       addToast(
-        err instanceof Error ? err.message : "Failed to update user",
+        err instanceof Error ? err.message : "Failed to update role",
         "error",
       );
     }
@@ -56,7 +61,7 @@ export default function AdminUsersPage() {
       <div className="max-w-3xl mx-auto p-8">
         <PageHeader
           title="Manage Users"
-          subtitle="Grant or revoke admin privileges for team members."
+          subtitle="Assign roles to team members."
         >
           <Button onClick={() => router.push("/admin/users/new")}>
             + New User
@@ -74,7 +79,7 @@ export default function AdminUsersPage() {
                   Email
                 </th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
-                  Admin
+                  Role
                 </th>
               </tr>
             </thead>
@@ -103,22 +108,18 @@ export default function AdminUsersPage() {
                       {u.email}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => toggleAdmin(u.id, !u.isAdmin)}
+                      <select
+                        value={u.role}
                         disabled={isSelf}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
-                          u.isAdmin
-                            ? "bg-emerald-600"
-                            : "bg-gray-300 dark:bg-gray-600"
-                        } ${isSelf ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                        aria-label={`${u.isAdmin ? "Revoke" : "Grant"} admin for ${u.name}`}
+                        onChange={(e) =>
+                          setRole(u.id, e.target.value as UserRole)
+                        }
+                        className={`text-sm rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isSelf ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
-                        <span
-                          className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
-                            u.isAdmin ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
+                        <option value="contractor">Contractor</option>
+                        <option value="employee">Employee</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     </td>
                   </tr>
                 );

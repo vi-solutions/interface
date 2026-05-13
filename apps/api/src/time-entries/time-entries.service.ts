@@ -11,6 +11,7 @@ import type {
   TimeEntry,
   TimeEntryWithUser,
   TimeEntryWithDetails,
+  TimeEntryReportEntry,
   CreateTimeEntryDto,
   UpdateTimeEntryDto,
 } from "@interface/shared";
@@ -191,5 +192,47 @@ export class TimeEntriesService {
     );
     if (result.rowCount === 0)
       throw new NotFoundException("Time entry not found");
+  }
+
+  async findReport(opts: {
+    startDate: string;
+    endDate: string;
+    userId?: string;
+    clientId?: string;
+  }): Promise<TimeEntryReportEntry[]> {
+    const params: unknown[] = [opts.startDate, opts.endDate];
+    const conditions: string[] = ["t.date >= $1", "t.date <= $2"];
+
+    if (opts.userId) {
+      params.push(opts.userId);
+      conditions.push(`t.user_id = $${params.length}`);
+    }
+    if (opts.clientId) {
+      params.push(opts.clientId);
+      conditions.push(`c.id = $${params.length}`);
+    }
+
+    const { rows } = await this.pool.query(
+      `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
+              t.task_id AS "taskId",
+              t.date, t.hours,
+              t.description, t.billable,
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              json_build_object('id', u.id, 'name', u.name) AS user,
+              json_build_object('id', p.id, 'name', p.name) AS project,
+              json_build_object('id', c.id, 'name', c.name) AS client,
+              CASE WHEN tk.id IS NOT NULL
+                   THEN json_build_object('id', tk.id, 'name', tk.name)
+                   ELSE NULL END AS task
+       FROM time_entries t
+       JOIN users u ON u.id = t.user_id
+       JOIN projects p ON p.id = t.project_id
+       JOIN clients c ON c.id = p.client_id
+       LEFT JOIN tasks tk ON tk.id = t.task_id
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY t.date ASC, c.name ASC, p.name ASC, t.created_at ASC`,
+      params,
+    );
+    return rows;
   }
 }

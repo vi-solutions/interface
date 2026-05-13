@@ -81,8 +81,8 @@ export default function ProfilePage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500 dark:text-gray-400">Role</span>
-              <span className="font-medium">
-                {user.isAdmin ? "Admin" : "Member"}
+              <span className="font-medium capitalize">
+                {user.role ?? (user.isAdmin ? "admin" : "member")}
               </span>
             </div>
           </div>

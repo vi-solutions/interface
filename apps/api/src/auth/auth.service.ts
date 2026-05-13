@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import * as jwt from "jsonwebtoken";
 import { UsersService } from "../users/users.service";
-import type { AuthResponse } from "@interface/shared";
+import type { AuthResponse, UserRole } from "@interface/shared";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
 const JWT_EXPIRES_IN = "7d";
@@ -13,6 +13,7 @@ const JWT_EXPIRES_IN = "7d";
 export interface JwtPayload {
   sub: string;
   email: string;
+  role: UserRole;
   isAdmin: boolean;
 }
 
@@ -30,13 +31,19 @@ export class AuthService {
     );
     if (!valid) throw new UnauthorizedException("Invalid credentials");
 
-    const token = this.signToken(user.id, user.email, user.is_admin);
+    const token = this.signToken(
+      user.id,
+      user.email,
+      user.role as UserRole,
+      user.is_admin,
+    );
     return {
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role as UserRole,
         isAdmin: user.is_admin,
       },
     };
@@ -51,13 +58,14 @@ export class AuthService {
     if (existing) throw new ConflictException("Email already registered");
 
     const user = await this.usersService.create(email, password, name);
-    const token = this.signToken(user.id, user.email, user.isAdmin);
+    const token = this.signToken(user.id, user.email, user.role, user.isAdmin);
     return {
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
         isAdmin: user.isAdmin,
       },
     };
@@ -85,13 +93,14 @@ export class AuthService {
     const user = await this.usersService.findById(payload.sub);
     if (!user) throw new UnauthorizedException("User not found");
 
-    const token = this.signToken(user.id, user.email, user.isAdmin);
+    const token = this.signToken(user.id, user.email, user.role, user.isAdmin);
     return {
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
         isAdmin: user.isAdmin,
       },
     };
@@ -105,9 +114,14 @@ export class AuthService {
     }
   }
 
-  private signToken(id: string, email: string, isAdmin: boolean): string {
+  private signToken(
+    id: string,
+    email: string,
+    role: UserRole,
+    isAdmin: boolean,
+  ): string {
     return jwt.sign(
-      { sub: id, email, isAdmin } satisfies JwtPayload,
+      { sub: id, email, role, isAdmin } satisfies JwtPayload,
       JWT_SECRET,
       {
         expiresIn: JWT_EXPIRES_IN,

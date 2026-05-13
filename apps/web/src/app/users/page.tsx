@@ -6,6 +6,7 @@ import type {
   ApiListResponse,
   ApiResponse,
   User,
+  UserRole,
   CreateUserDto,
   UpdateUserDto,
 } from "@interface/shared";
@@ -69,7 +70,7 @@ export default function UsersPage() {
       name: form.get("name") as string,
       email: form.get("email") as string,
       password: form.get("password") as string,
-      isAdmin: form.get("isAdmin") === "on",
+      role: (form.get("role") as UserRole) || "contractor",
       rateCents: Math.round(
         parseFloat((form.get("rateCents") as string) || "0") * 100,
       ),
@@ -159,11 +160,12 @@ export default function UsersPage() {
                   Role
                 </label>
                 <select
-                  name="isAdmin"
+                  name="role"
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="">Employee</option>
-                  <option value="on">Admin</option>
+                  <option value="contractor">Contractor</option>
+                  <option value="employee">Employee</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
               <div>
@@ -268,13 +270,15 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          u.isAdmin
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                          u.role === "admin"
                             ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                            : u.role === "employee"
+                              ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
                         }`}
                       >
-                        {u.isAdmin ? "Admin" : "Employee"}
+                        {u.role}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">

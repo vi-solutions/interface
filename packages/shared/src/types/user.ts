@@ -1,7 +1,10 @@
+export type UserRole = "employee" | "contractor" | "admin";
+
 export interface User {
   id: string;
   email: string;
   name: string;
+  role: UserRole;
   isAdmin: boolean;
   rateCents: number;
   dailyRateCents: number;
@@ -14,6 +17,7 @@ export interface CreateUserDto {
   email: string;
   name: string;
   password: string;
+  role?: UserRole;
   isAdmin?: boolean;
   rateCents?: number;
   dailyRateCents?: number;
@@ -23,6 +27,7 @@ export interface CreateUserDto {
 export interface UpdateUserDto {
   name?: string;
   email?: string;
+  role?: UserRole;
   isAdmin?: boolean;
   rateCents?: number;
   dailyRateCents?: number;

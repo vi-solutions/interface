@@ -1,3 +1,5 @@
+import type { UserRole } from "./user";
+
 export interface LoginDto {
   email: string;
   password: string;
@@ -15,6 +17,7 @@ export interface AuthResponse {
     id: string;
     email: string;
     name: string;
+    role: UserRole;
     isAdmin: boolean;
   };
 }

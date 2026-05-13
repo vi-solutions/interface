@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import type { ApiResponse, User, UpdateUserDto } from "@interface/shared";
+import type {
+  ApiResponse,
+  User,
+  UserRole,
+  UpdateUserDto,
+} from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
@@ -61,7 +66,7 @@ export default function EditUserPage() {
     const dto: UpdateUserDto = {
       name: form.get("name") as string,
       email: form.get("email") as string,
-      isAdmin: form.get("isAdmin") === "on",
+      role: (form.get("role") as UserRole) || undefined,
       rateCents: rateStr ? Math.round(parseFloat(rateStr) * 100) : 0,
       dailyRateCents: dailyStr ? Math.round(parseFloat(dailyStr) * 100) : 0,
       hourlyCostCents: costStr ? Math.round(parseFloat(costStr) * 100) : 0,
@@ -180,24 +185,24 @@ export default function EditUserPage() {
               )}
             </FormField>
 
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                id="isAdmin"
-                name="isAdmin"
-                type="checkbox"
-                defaultChecked={user.isAdmin}
+            <FormField label="Role" htmlFor="role">
+              <select
+                id="role"
+                name="role"
+                defaultValue={user.role}
                 disabled={user.id === currentUser?.id}
-                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <label htmlFor="isAdmin" className="text-sm font-medium">
-                Admin privileges
-              </label>
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+              >
+                <option value="contractor">Contractor</option>
+                <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
+              </select>
               {user.id === currentUser?.id && (
-                <span className="text-xs text-gray-400">
-                  (cannot change your own admin status)
-                </span>
+                <p className="text-xs text-gray-400 mt-1">
+                  (cannot change your own role)
+                </p>
               )}
-            </div>
+            </FormField>
 
             <div className="flex gap-3 pt-2">
               <Button type="submit" disabled={saving}>

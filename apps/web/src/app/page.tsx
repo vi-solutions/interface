@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/app-shell";
@@ -27,10 +28,15 @@ interface DashboardData {
 export default function Home() {
   const { authenticated } = useRequireAuth();
   const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
     if (!authenticated) return;
+    if (user && user.role === "contractor") {
+      router.push("/projects");
+      return;
+    }
     Promise.all([
       api<ApiListResponse<ProjectWithClient>>("/projects"),
       api<ApiListResponse<Client>>("/clients"),

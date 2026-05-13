@@ -13,6 +13,8 @@ import type {
 } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import {
   PageHeader,
@@ -531,6 +533,8 @@ function InvoicePreviewStep({
 
 export default function InvoicesPage() {
   const { authenticated } = useRequireAuth();
+  const { user: currentUser } = useAuth();
+  const router = useRouter();
 
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
@@ -559,13 +563,17 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     if (!authenticated) return;
+    if (currentUser && !currentUser.isAdmin) {
+      router.push("/");
+      return;
+    }
     Promise.all([
       api<ApiListResponse<ProjectWithClient>>("/projects?status=active"),
       loadInvoices(),
     ]).then(([projRes]) => setProjects(projRes.data));
-  }, [authenticated, loadInvoices]);
+  }, [authenticated, currentUser, router, loadInvoices]);
 
-  if (!authenticated) return null;
+  if (!authenticated || !currentUser?.isAdmin) return null;
 
   async function handlePreview(
     projectId: string,
