@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from "@nestjs/common";
+import { Injectable, Inject, NotFoundException, ConflictException } from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
@@ -76,7 +76,25 @@ export class UserExpensesService {
     return rows[0];
   }
 
+  private async assertNotLocked(projectId: string, date: string): Promise<void> {
+    const { rows } = await this.pool.query(
+      `SELECT id FROM invoices
+       WHERE project_id = $1
+         AND period_start <= $2
+         AND period_end >= $2
+         AND status IN ('sent', 'paid')
+       LIMIT 1`,
+      [projectId, date],
+    );
+    if (rows[0]) {
+      throw new ConflictException(
+        "This entry falls within a locked (sent/paid) invoice period and cannot be modified.",
+      );
+    }
+  }
+
   async create(dto: CreateUserExpenseDto): Promise<UserExpense> {
+    await this.assertNotLocked(dto.projectId, dto.date);
     const id = uuid();
     const { rows } = await this.pool.query(
       `INSERT INTO user_expenses (id, project_id, user_id, project_expense_id, date, quantity, total_cents, notes)
@@ -105,6 +123,11 @@ export class UserExpensesService {
 
   async update(id: string, dto: UpdateUserExpenseDto): Promise<UserExpense> {
     const existing = await this.findById(id);
+    await this.assertNotLocked(existing.projectId, existing.date);
+    const newDate = dto.date ?? existing.date;
+    if (newDate !== existing.date) {
+      await this.assertNotLocked(existing.projectId, newDate);
+    }
     const { rows } = await this.pool.query(
       `UPDATE user_expenses SET date = $2, quantity = $3, total_cents = $4,
               notes = $5, updated_at = NOW()
@@ -136,6 +159,8 @@ export class UserExpensesService {
   }
 
   async remove(id: string): Promise<void> {
+    const entry = await this.findById(id);
+    await this.assertNotLocked(entry.projectId, entry.date);
     // Sync delete before removing the row (need qbo_expense_id)
     await this.qboSync.syncExpenseDelete(id);
     const result = await this.pool.query(

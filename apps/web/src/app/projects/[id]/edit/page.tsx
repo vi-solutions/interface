@@ -79,6 +79,9 @@ export default function EditProjectPage() {
   >([]);
   const [showRateForm, setShowRateForm] = useState(false);
   const [savingRate, setSavingRate] = useState(false);
+  const [addMemberUserId, setAddMemberUserId] = useState("");
+  const [addMemberHourly, setAddMemberHourly] = useState("");
+  const [addMemberDaily, setAddMemberDaily] = useState("");
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [editingHourly, setEditingHourly] = useState("");
   const [editingDaily, setEditingDaily] = useState("");
@@ -1120,7 +1123,16 @@ export default function EditProjectPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Team Rates</h2>
               <button
-                onClick={() => setShowRateForm((v) => !v)}
+                onClick={() => {
+                  setShowRateForm((v) => {
+                    if (v) {
+                      setAddMemberUserId("");
+                      setAddMemberHourly("");
+                      setAddMemberDaily("");
+                    }
+                    return !v;
+                  });
+                }}
                 className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
               >
                 {showRateForm ? "Cancel" : "+ Add Member"}
@@ -1132,17 +1144,14 @@ export default function EditProjectPage() {
                 onSubmit={async (e) => {
                   e.preventDefault();
                   setSavingRate(true);
-                  const form = new FormData(e.currentTarget);
-                  const hourlyStr = form.get("hourlyRate") as string;
-                  const dailyStr = form.get("dailyRate") as string;
                   const dto: CreateProjectUserRateDto = {
                     projectId: id,
-                    userId: form.get("userId") as string,
-                    hourlyRateCents: hourlyStr
-                      ? Math.round(parseFloat(hourlyStr) * 100)
+                    userId: addMemberUserId,
+                    hourlyRateCents: addMemberHourly
+                      ? Math.round(parseFloat(addMemberHourly) * 100)
                       : undefined,
-                    dailyRateCents: dailyStr
-                      ? Math.round(parseFloat(dailyStr) * 100)
+                    dailyRateCents: addMemberDaily
+                      ? Math.round(parseFloat(addMemberDaily) * 100)
                       : undefined,
                   };
                   try {
@@ -1152,6 +1161,9 @@ export default function EditProjectPage() {
                     );
                     addToast("Team member added");
                     setShowRateForm(false);
+                    setAddMemberUserId("");
+                    setAddMemberHourly("");
+                    setAddMemberDaily("");
                     loadProjectUserRates();
                   } catch (err) {
                     addToast(
@@ -1173,6 +1185,25 @@ export default function EditProjectPage() {
                   <select
                     name="userId"
                     required
+                    value={addMemberUserId}
+                    onChange={(e) => {
+                      const uid = e.target.value;
+                      setAddMemberUserId(uid);
+                      const u = users.find((u) => u.id === uid);
+                      if (u) {
+                        setAddMemberHourly(
+                          u.rateCents > 0 ? (u.rateCents / 100).toFixed(2) : "",
+                        );
+                        setAddMemberDaily(
+                          u.dailyRateCents > 0
+                            ? (u.dailyRateCents / 100).toFixed(2)
+                            : "",
+                        );
+                      } else {
+                        setAddMemberHourly("");
+                        setAddMemberDaily("");
+                      }
+                    }}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     <option value="">Select…</option>
@@ -1197,6 +1228,8 @@ export default function EditProjectPage() {
                     step="0.01"
                     min="0"
                     placeholder="0.00"
+                    value={addMemberHourly}
+                    onChange={(e) => setAddMemberHourly(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
@@ -1210,6 +1243,8 @@ export default function EditProjectPage() {
                     step="0.01"
                     min="0"
                     placeholder="0.00"
+                    value={addMemberDaily}
+                    onChange={(e) => setAddMemberDaily(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>

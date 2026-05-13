@@ -1,5 +1,5 @@
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void";
-export type InvoiceLineItemType = "time" | "expense";
+export type InvoiceLineItemType = "time" | "expense" | "fee";
 
 export interface InvoiceLineItem {
   id: string;

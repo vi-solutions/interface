@@ -97,12 +97,16 @@ function NewInvoiceForm({
 }) {
   const months = recentMonths();
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const [mode, setMode] = useState<"preset" | "custom">("preset");
   const [period, setPeriod] = useState(`${months[1].start}|${months[1].end}`);
+  const [customStart, setCustomStart] = useState(months[1].start);
+  const [customEnd, setCustomEnd] = useState(months[1].end);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handlePreview() {
-    const [start, end] = period.split("|");
+    const [start, end] =
+      mode === "custom" ? [customStart, customEnd] : period.split("|");
     setLoading(true);
     setError(null);
     try {
@@ -136,22 +140,75 @@ function NewInvoiceForm({
             ))}
           </select>
         </div>
+
         <div>
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
             Billing period
           </label>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            {months.map((m) => (
-              <option key={m.start} value={`${m.start}|${m.end}`}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("preset")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                mode === "preset"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
+            >
+              Month
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("custom")}
+              className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-300 dark:border-gray-600 ${
+                mode === "custom"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
+            >
+              Custom range
+            </button>
+          </div>
         </div>
+
+        {mode === "preset" ? (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">&nbsp;</label>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              {months.map((m) => (
+                <option key={m.start} value={`${m.start}|${m.end}`}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">&nbsp;</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <span className="text-xs text-gray-500">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2">
           <Button onClick={handlePreview} disabled={loading || !projectId}>
             {loading ? "Loading…" : "Preview"}
@@ -193,6 +250,9 @@ function InvoicePreviewStep({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feeLabel, setFeeLabel] = useState("Admin fee");
+  const [feePct, setFeePct] = useState("10");
+  const [feeBase, setFeeBase] = useState<"all" | "time" | "expense">("time");
 
   function updateItem(
     idx: number,
@@ -216,6 +276,30 @@ function InvoicePreviewStep({
 
   function removeItem(idx: number) {
     setLineItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function addBlankItem() {
+    setLineItems((prev) => [
+      ...prev,
+      { type: "fee", description: "", quantity: 1, unitCents: 0 },
+    ]);
+  }
+
+  function addFee() {
+    const pct = parseFloat(feePct) || 0;
+    const baseCents = lineItems
+      .filter((li) => feeBase === "all" || li.type === feeBase)
+      .reduce((s, li) => s + Math.round(li.quantity * li.unitCents), 0);
+    const feeCents = Math.round(baseCents * (pct / 100));
+    setLineItems((prev) => [
+      ...prev,
+      {
+        type: "fee",
+        description: `${feeLabel} (${pct}%)`,
+        quantity: 1,
+        unitCents: feeCents,
+      },
+    ]);
   }
 
   const totalCents = lineItems.reduce(
@@ -335,6 +419,54 @@ function InvoicePreviewStep({
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* Add items toolbar */}
+      <div className="flex flex-wrap items-end gap-3 mb-5 pt-1">
+        <button
+          type="button"
+          onClick={addBlankItem}
+          className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+        >
+          + Add line item
+        </button>
+        <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>
+        {/* % fee tool */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Add fee:</span>
+          <input
+            type="text"
+            value={feeLabel}
+            onChange={(e) => setFeeLabel(e.target.value)}
+            placeholder="Description"
+            className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 w-32"
+          />
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            value={feePct}
+            onChange={(e) => setFeePct(e.target.value)}
+            className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-emerald-500 w-16"
+          />
+          <span className="text-xs text-gray-500">% of</span>
+          <select
+            value={feeBase}
+            onChange={(e) => setFeeBase(e.target.value as "all" | "time" | "expense")}
+            className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          >
+            <option value="time">Labour</option>
+            <option value="expense">Expenses</option>
+            <option value="all">All items</option>
+          </select>
+          <button
+            type="button"
+            onClick={addFee}
+            className="rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 font-medium transition-colors"
+          >
+            Add
+          </button>
+        </div>
       </div>
 
       {/* Notes + due date */}

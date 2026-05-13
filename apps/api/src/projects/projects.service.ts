@@ -51,6 +51,26 @@ export class ProjectsService {
     return rows[0];
   }
 
+  async findByUser(userId: string): Promise<ProjectWithClient[]> {
+    const { rows } = await this.pool.query(
+      `SELECT p.id, p.client_id AS "clientId", p.name, p.code, p.description, p.status, p.phase,
+              p.start_date AS "startDate", p.end_date AS "endDate",
+              p.budget_cents AS "budgetCents", p.budget_hours AS "budgetHours",
+              p.project_manager_id AS "projectManagerId",
+              p.google_drive_folder_id AS "googleDriveFolderId",
+              p.created_at AS "createdAt", p.updated_at AS "updatedAt",
+              json_build_object('id', c.id, 'name', c.name) AS client,
+              CASE WHEN pm.id IS NOT NULL THEN json_build_object('id', pm.id, 'name', pm.name) ELSE NULL END AS "projectManager"
+       FROM projects p
+       JOIN clients c ON c.id = p.client_id
+       LEFT JOIN users pm ON pm.id = p.project_manager_id
+       WHERE p.id IN (SELECT project_id FROM project_user_rates WHERE user_id = $1)
+       ORDER BY p.updated_at DESC`,
+      [userId],
+    );
+    return rows;
+  }
+
   async create(dto: CreateProjectDto): Promise<Project> {
     const id = uuid();
     const { rows } = await this.pool.query(

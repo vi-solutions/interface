@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import type { ApiResponse, User, UpdateUserDto } from "@interface/shared";
 import { api } from "@/lib/api";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -15,7 +16,6 @@ import {
   Button,
   ErrorAlert,
 } from "@/components/ui";
-import Link from "next/link";
 
 export default function EditUserPage() {
   const { authenticated } = useRequireAuth();
@@ -23,9 +23,12 @@ export default function EditUserPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { addToast } = useToast();
+
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
     if (!authenticated) return;
@@ -44,6 +47,10 @@ export default function EditUserPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (newPassword && newPassword.length < 6) {
+      setPasswordError("Minimum 6 characters");
+      return;
+    }
     setError(null);
     setSaving(true);
 
@@ -61,13 +68,18 @@ export default function EditUserPage() {
     };
 
     try {
-      const res = await api<ApiResponse<User>>(`/users/${id}`, {
+      await api<ApiResponse<User>>(`/users/${id}`, {
         method: "PUT",
         body: JSON.stringify(dto),
       });
-      setUser(res.data);
-      addToast("User updated successfully");
-      router.push("/admin/users");
+      if (newPassword) {
+        await api(`/users/${id}/password`, {
+          method: "PUT",
+          body: JSON.stringify({ newPassword }),
+        });
+      }
+      addToast("User updated");
+      router.push("/users");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update user");
     } finally {
@@ -80,7 +92,7 @@ export default function EditUserPage() {
       <div className="max-w-2xl mx-auto p-8">
         <div className="mb-6">
           <Link
-            href="/admin/users"
+            href="/users"
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
             ← Back to Users
@@ -111,7 +123,7 @@ export default function EditUserPage() {
               />
             </FormField>
 
-            <FormField label="Default Hourly Rate ($)" htmlFor="rateCents">
+            <FormField label="Charge-out Rate ($/hr)" htmlFor="rateCents">
               <Input
                 id="rateCents"
                 name="rateCents"
@@ -121,12 +133,9 @@ export default function EditUserPage() {
                 defaultValue={(Number(user.rateCents) / 100).toFixed(2)}
                 placeholder="0.00"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Charge-out rate — used when no project-specific rate is set
-              </p>
             </FormField>
 
-            <FormField label="Default Daily Rate ($)" htmlFor="dailyRateCents">
+            <FormField label="Daily Rate ($/day)" htmlFor="dailyRateCents">
               <Input
                 id="dailyRateCents"
                 name="dailyRateCents"
@@ -136,13 +145,12 @@ export default function EditUserPage() {
                 defaultValue={(Number(user.dailyRateCents) / 100).toFixed(2)}
                 placeholder="0.00"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Daily charge-out rate — used when no project-specific rate is
-                set
-              </p>
             </FormField>
 
-            <FormField label="Hourly Wage / Cost ($)" htmlFor="hourlyCostCents">
+            <FormField
+              label="Hourly Wage / Cost ($/hr)"
+              htmlFor="hourlyCostCents"
+            >
               <Input
                 id="hourlyCostCents"
                 name="hourlyCostCents"
@@ -152,9 +160,24 @@ export default function EditUserPage() {
                 defaultValue={(Number(user.hourlyCostCents) / 100).toFixed(2)}
                 placeholder="0.00"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Internal cost per hour — used to calculate net profit
-              </p>
+            </FormField>
+
+            <FormField label="New Password" htmlFor="newPassword">
+              <Input
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                minLength={6}
+                placeholder="Leave blank to keep current"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setPasswordError("");
+                }}
+              />
+              {passwordError && (
+                <p className="text-xs text-red-500 mt-1">{passwordError}</p>
+              )}
             </FormField>
 
             <div className="flex items-center gap-2 pt-1">
@@ -183,7 +206,7 @@ export default function EditUserPage() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => router.push("/admin/users")}
+                onClick={() => router.push("/users")}
               >
                 Cancel
               </Button>

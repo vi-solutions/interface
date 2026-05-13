@@ -16,14 +16,6 @@ import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Button } from "@/components/ui";
 
-interface EditFields {
-  name: string;
-  email: string;
-  isAdmin: boolean;
-  rateCents: string;
-  hourlyCostCents: string;
-}
-
 function fmtRate(cents: number) {
   return (cents / 100).toFixed(2);
 }
@@ -37,9 +29,6 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editFields, setEditFields] = useState<EditFields | null>(null);
-  const [newPassword, setNewPassword] = useState("");
 
   const loadUsers = useCallback(() => {
     api<ApiListResponse<User>>("/users")
@@ -57,63 +46,6 @@ export default function UsersPage() {
   }, [authenticated, currentUser, router, loadUsers]);
 
   if (!authenticated || !currentUser?.isAdmin) return null;
-
-  function startEdit(u: User) {
-    setEditingId(u.id);
-    setEditFields({
-      name: u.name,
-      email: u.email,
-      isAdmin: u.isAdmin,
-      rateCents: fmtRate(u.rateCents),
-      hourlyCostCents: fmtRate(u.hourlyCostCents),
-    });
-    setNewPassword("");
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setEditFields(null);
-    setNewPassword("");
-  }
-
-  async function saveEdit(id: string) {
-    if (!editFields) return;
-    setSaving(true);
-    try {
-      const dto: UpdateUserDto = {
-        name: editFields.name,
-        email: editFields.email,
-        isAdmin: editFields.isAdmin,
-        rateCents: Math.round(parseFloat(editFields.rateCents || "0") * 100),
-        hourlyCostCents: Math.round(
-          parseFloat(editFields.hourlyCostCents || "0") * 100,
-        ),
-      };
-      await api<ApiResponse<User>>(`/users/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(dto),
-      });
-      // Optionally update password
-      if (newPassword.trim().length >= 6) {
-        await api(`/users/${id}/password`, {
-          method: "PUT",
-          body: JSON.stringify({ newPassword: newPassword.trim() }),
-        });
-      }
-      addToast("User updated");
-      setEditingId(null);
-      setEditFields(null);
-      setNewPassword("");
-      loadUsers();
-    } catch (err) {
-      addToast(
-        err instanceof Error ? err.message : "Failed to update user",
-        "error",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
@@ -140,6 +72,9 @@ export default function UsersPage() {
       isAdmin: form.get("isAdmin") === "on",
       rateCents: Math.round(
         parseFloat((form.get("rateCents") as string) || "0") * 100,
+      ),
+      dailyRateCents: Math.round(
+        parseFloat((form.get("dailyRateCents") as string) || "0") * 100,
       ),
       hourlyCostCents: Math.round(
         parseFloat((form.get("hourlyCostCents") as string) || "0") * 100,
@@ -246,6 +181,19 @@ export default function UsersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Daily Rate ($/day)
+                </label>
+                <input
+                  name="dailyRateCents"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Hourly Wage ($/hr)
                 </label>
                 <input
@@ -291,6 +239,9 @@ export default function UsersPage() {
                   Rate ($/hr)
                 </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
+                  Rate ($/day)
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
                   Wage ($/hr)
                 </th>
                 <th className="px-4 py-3" />
@@ -299,125 +250,6 @@ export default function UsersPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {users.map((u) => {
                 const isSelf = u.id === currentUser.id;
-                const isEditing = editingId === u.id;
-
-                if (isEditing && editFields) {
-                  return (
-                    <tr
-                      key={u.id}
-                      className="bg-emerald-50 dark:bg-emerald-950/20"
-                    >
-                      <td className="px-4 py-2">
-                        <input
-                          value={editFields.name}
-                          onChange={(e) =>
-                            setEditFields(
-                              (f) => f && { ...f, name: e.target.value },
-                            )
-                          }
-                          className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="email"
-                          value={editFields.email}
-                          onChange={(e) =>
-                            setEditFields(
-                              (f) => f && { ...f, email: e.target.value },
-                            )
-                          }
-                          className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <select
-                          value={editFields.isAdmin ? "admin" : "employee"}
-                          disabled={isSelf}
-                          onChange={(e) =>
-                            setEditFields(
-                              (f) =>
-                                f && {
-                                  ...f,
-                                  isAdmin: e.target.value === "admin",
-                                },
-                            )
-                          }
-                          className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                        >
-                          <option value="employee">Employee</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editFields.rateCents}
-                          onChange={(e) =>
-                            setEditFields(
-                              (f) => f && { ...f, rateCents: e.target.value },
-                            )
-                          }
-                          className="w-24 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editFields.hourlyCostCents}
-                          onChange={(e) =>
-                            setEditFields(
-                              (f) =>
-                                f && { ...f, hourlyCostCents: e.target.value },
-                            )
-                          }
-                          className="w-24 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="flex flex-col gap-1 items-end mr-2">
-                            <input
-                              type="password"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              placeholder="New password (optional)"
-                              minLength={6}
-                              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48"
-                            />
-                            {newPassword.length > 0 &&
-                              newPassword.length < 6 && (
-                                <span className="text-xs text-red-500">
-                                  Min 6 chars
-                                </span>
-                              )}
-                          </div>
-                          <button
-                            onClick={() => saveEdit(u.id)}
-                            disabled={
-                              saving ||
-                              (newPassword.length > 0 && newPassword.length < 6)
-                            }
-                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                          >
-                            {saving ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }
-
                 return (
                   <tr
                     key={u.id}
@@ -449,12 +281,15 @@ export default function UsersPage() {
                       ${fmtRate(u.rateCents)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                      ${fmtRate(u.dailyRateCents)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">
                       ${fmtRate(u.hourlyCostCents)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => startEdit(u)}
+                          onClick={() => router.push(`/users/${u.id}`)}
                           className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           Edit

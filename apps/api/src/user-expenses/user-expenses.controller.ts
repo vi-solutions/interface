@@ -10,13 +10,17 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  Req,
+  ForbiddenException,
 } from "@nestjs/common";
+import { Request } from "express";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname, join } from "path";
 import { existsSync, unlinkSync, mkdirSync } from "fs";
 import { v4 as uuid } from "uuid";
 import { UserExpensesService } from "./user-expenses.service";
+import { ProjectUserRatesService } from "../project-user-rates/project-user-rates.service";
 import type {
   ApiResponse,
   ApiListResponse,
@@ -30,7 +34,10 @@ const uploadsDir = join(__dirname, "..", "..", "..", "uploads", "receipts");
 
 @Controller("user-expenses")
 export class UserExpensesController {
-  constructor(private readonly userExpensesService: UserExpensesService) {}
+  constructor(
+    private readonly userExpensesService: UserExpensesService,
+    private readonly projectUserRatesService: ProjectUserRatesService,
+  ) {}
 
   @Get()
   async findByProject(
@@ -53,7 +60,18 @@ export class UserExpensesController {
   @Post()
   async create(
     @Body() dto: CreateUserExpenseDto,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<UserExpense>> {
+    if (!req.user.isAdmin) {
+      const assigned =
+        await this.projectUserRatesService.isUserAssignedToProject(
+          req.user.sub,
+          dto.projectId,
+        );
+      if (!assigned) {
+        throw new ForbiddenException("You are not assigned to this project");
+      }
+    }
     return { data: await this.userExpensesService.create(dto) };
   }
 

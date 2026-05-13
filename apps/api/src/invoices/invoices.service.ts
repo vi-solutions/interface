@@ -48,7 +48,7 @@ export class InvoicesService {
     const { rows: timeRows } = await this.pool.query(
       `SELECT u.id AS user_id, u.name AS user_name,
               SUM(te.hours) AS total_hours,
-              pur.hourly_rate_cents
+              COALESCE(pur.hourly_rate_cents, u.rate_cents) AS hourly_rate_cents
        FROM time_entries te
        JOIN users u ON u.id = te.user_id
        LEFT JOIN project_user_rates pur
@@ -57,7 +57,7 @@ export class InvoicesService {
          AND te.billable = true
          AND te.date >= $2
          AND te.date <= $3
-       GROUP BY u.id, u.name, pur.hourly_rate_cents
+       GROUP BY u.id, u.name, pur.hourly_rate_cents, u.rate_cents
        ORDER BY u.name`,
       [projectId, periodStart, periodEnd],
     );

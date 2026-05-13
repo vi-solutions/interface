@@ -36,15 +36,18 @@ export default function TimePage() {
   }, []);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated || !currentUser) return;
     loadEntries();
-    api<ApiListResponse<ProjectWithClient>>("/projects")
+    const projectsUrl = currentUser.isAdmin
+      ? "/projects"
+      : `/projects?userId=${currentUser.id}`;
+    api<ApiListResponse<ProjectWithClient>>(projectsUrl)
       .then((res) => setProjects(res.data))
       .catch(() => {});
     api<ApiListResponse<User>>("/users")
       .then((res) => setUsers(res.data))
       .catch(() => {});
-  }, [authenticated, loadEntries]);
+  }, [authenticated, currentUser, loadEntries]);
 
   useEffect(() => {
     if (!selectedProjectId) {

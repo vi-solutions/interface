@@ -25,8 +25,8 @@ async function seed() {
 
   // Seed a demo client
   await pool.query(`
-    INSERT INTO clients (id, name, contact_name, contact_email)
-    VALUES ('00000000-0000-0000-0000-000000000010', 'City of Portland', 'Jane Smith', 'jsmith@portland.gov')
+    INSERT INTO clients (id, name)
+    VALUES ('00000000-0000-0000-0000-000000000010', 'City of Portland')
     ON CONFLICT DO NOTHING
   `);
 

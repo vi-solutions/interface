@@ -25,6 +25,7 @@ export class UsersService {
     const { rows } = await this.pool.query(
       `SELECT id, email, name, is_admin AS "isAdmin",
               rate_cents AS "rateCents",
+              daily_rate_cents AS "dailyRateCents",
               hourly_cost_cents AS "hourlyCostCents",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM users ORDER BY name`,
@@ -46,6 +47,7 @@ export class UsersService {
     const { rows } = await this.pool.query(
       `SELECT id, email, name, is_admin AS "isAdmin",
               rate_cents AS "rateCents",
+              daily_rate_cents AS "dailyRateCents",
               hourly_cost_cents AS "hourlyCostCents",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM users WHERE id = $1`,
@@ -70,18 +72,28 @@ export class UsersService {
     password: string,
     name: string,
     rateCents?: number,
+    dailyRateCents?: number,
     hourlyCostCents?: number,
   ): Promise<User> {
     const id = uuid();
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const { rows } = await this.pool.query(
-      `INSERT INTO users (id, email, name, password_hash, rate_cents, hourly_cost_cents)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (id, email, name, password_hash, rate_cents, daily_rate_cents, hourly_cost_cents)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, email, name, is_admin AS "isAdmin",
                  rate_cents AS "rateCents",
+                 daily_rate_cents AS "dailyRateCents",
                  hourly_cost_cents AS "hourlyCostCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
-      [id, email, name, passwordHash, rateCents ?? 0, hourlyCostCents ?? 0],
+      [
+        id,
+        email,
+        name,
+        passwordHash,
+        rateCents ?? 0,
+        dailyRateCents ?? 0,
+        hourlyCostCents ?? 0,
+      ],
     );
     return rows[0];
   }
@@ -105,6 +117,7 @@ export class UsersService {
       email?: string;
       isAdmin?: boolean;
       rateCents?: number;
+      dailyRateCents?: number;
       hourlyCostCents?: number;
     },
   ): Promise<User> {
@@ -128,6 +141,10 @@ export class UsersService {
       sets.push(`rate_cents = $${idx++}`);
       values.push(fields.rateCents);
     }
+    if (fields.dailyRateCents !== undefined) {
+      sets.push(`daily_rate_cents = $${idx++}`);
+      values.push(fields.dailyRateCents);
+    }
     if (fields.hourlyCostCents !== undefined) {
       sets.push(`hourly_cost_cents = $${idx++}`);
       values.push(fields.hourlyCostCents);
@@ -142,6 +159,7 @@ export class UsersService {
       `UPDATE users SET ${sets.join(", ")} WHERE id = $${idx}
        RETURNING id, email, name, is_admin AS "isAdmin",
                  rate_cents AS "rateCents",
+                 daily_rate_cents AS "dailyRateCents",
                  hourly_cost_cents AS "hourlyCostCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       values,
@@ -155,6 +173,7 @@ export class UsersService {
       `UPDATE users SET is_admin = $2, updated_at = NOW() WHERE id = $1
        RETURNING id, email, name, is_admin AS "isAdmin",
                  rate_cents AS "rateCents",
+                 daily_rate_cents AS "dailyRateCents",
                  hourly_cost_cents AS "hourlyCostCents",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [id, isAdmin],

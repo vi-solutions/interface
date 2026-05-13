@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
 } from "@nestjs/common";
 import { ProjectsService } from "./projects.service";
 import type {
@@ -22,8 +23,12 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get()
-  async findAll(): Promise<ApiListResponse<ProjectWithClient>> {
-    const data = await this.projectsService.findAll();
+  async findAll(
+    @Query("userId") userId?: string,
+  ): Promise<ApiListResponse<ProjectWithClient>> {
+    const data = userId
+      ? await this.projectsService.findByUser(userId)
+      : await this.projectsService.findAll();
     return { data, total: data.length };
   }
 

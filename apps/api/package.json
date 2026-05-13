@@ -9,7 +9,8 @@
     "start:prod": "node dist/main.js",
     "lint": "tsc --noEmit",
     "db:migrate": "nest build && node dist/db/migrate.js",
-    "db:seed": "node dist/db/seed.js"
+    "db:seed": "node dist/db/seed.js",
+    "db:harvest-import": "nest build && node dist/db/harvest-import.js"
   },
   "dependencies": {
     "@interface/shared": "*",

@@ -129,4 +129,15 @@ export class ProjectUserRatesService {
     if (result.rowCount === 0)
       throw new NotFoundException("Project user rate not found");
   }
+
+  async isUserAssignedToProject(
+    userId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    const { rows } = await this.pool.query(
+      `SELECT 1 FROM project_user_rates WHERE user_id = $1 AND project_id = $2 LIMIT 1`,
+      [userId, projectId],
+    );
+    return rows.length > 0;
+  }
 }

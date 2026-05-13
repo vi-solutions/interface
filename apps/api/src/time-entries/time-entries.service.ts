@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from "@nestjs/common";
+import { Injectable, Inject, NotFoundException, ConflictException } from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
@@ -101,7 +101,25 @@ export class TimeEntriesService {
     return rows[0];
   }
 
+  private async assertNotLocked(projectId: string, date: string): Promise<void> {
+    const { rows } = await this.pool.query(
+      `SELECT id FROM invoices
+       WHERE project_id = $1
+         AND period_start <= $2
+         AND period_end >= $2
+         AND status IN ('sent', 'paid')
+       LIMIT 1`,
+      [projectId, date],
+    );
+    if (rows[0]) {
+      throw new ConflictException(
+        "This entry falls within a locked (sent/paid) invoice period and cannot be modified.",
+      );
+    }
+  }
+
   async create(dto: CreateTimeEntryDto): Promise<TimeEntry> {
+    await this.assertNotLocked(dto.projectId, dto.date);
     const id = uuid();
     const { rows } = await this.pool.query(
       `INSERT INTO time_entries (id, project_id, user_id, task_id, date, hours, description, billable)
@@ -127,6 +145,12 @@ export class TimeEntriesService {
 
   async update(id: string, dto: UpdateTimeEntryDto): Promise<TimeEntry> {
     const existing = await this.findById(id);
+    await this.assertNotLocked(existing.projectId, existing.date);
+    const newProjectId = dto.projectId ?? existing.projectId;
+    const newDate = dto.date ?? existing.date;
+    if (newProjectId !== existing.projectId || newDate !== existing.date) {
+      await this.assertNotLocked(newProjectId, newDate);
+    }
     const { rows } = await this.pool.query(
       `UPDATE time_entries SET project_id = $2, user_id = $3, task_id = $4,
               date = $5, hours = $6, description = $7, billable = $8, updated_at = NOW()
@@ -151,6 +175,8 @@ export class TimeEntriesService {
   }
 
   async remove(id: string): Promise<void> {
+    const entry = await this.findById(id);
+    await this.assertNotLocked(entry.projectId, entry.date);
     const result = await this.pool.query(
       "DELETE FROM time_entries WHERE id = $1",
       [id],

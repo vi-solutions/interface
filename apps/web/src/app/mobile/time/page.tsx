@@ -377,7 +377,10 @@ export default function MobileTimePage() {
   useEffect(() => {
     if (!authenticated || !user) return;
     loadEntries();
-    api<ApiListResponse<ProjectWithClient>>("/projects")
+    const projectsUrl = user.isAdmin
+      ? "/projects"
+      : `/projects?userId=${user.id}`;
+    api<ApiListResponse<ProjectWithClient>>(projectsUrl)
       .then((r) => setProjects(r.data))
       .catch(() => {});
   }, [authenticated, user, loadEntries]);

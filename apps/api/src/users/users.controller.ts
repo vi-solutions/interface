@@ -45,6 +45,7 @@ export class UsersController {
       body.password,
       body.name,
       body.rateCents,
+      body.dailyRateCents,
       body.hourlyCostCents,
     );
     if (body.isAdmin) {

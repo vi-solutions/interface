@@ -33,6 +33,7 @@ export default function NewUserPage() {
 
     const form = new FormData(e.currentTarget);
     const rateStr = form.get("rateCents") as string;
+    const dailyStr = form.get("dailyRateCents") as string;
     const costStr = form.get("hourlyCostCents") as string;
     const dto: CreateUserDto = {
       name: form.get("name") as string,
@@ -40,6 +41,7 @@ export default function NewUserPage() {
       password: form.get("password") as string,
       isAdmin: form.get("isAdmin") === "on",
       rateCents: rateStr ? Math.round(parseFloat(rateStr) * 100) : 0,
+      dailyRateCents: dailyStr ? Math.round(parseFloat(dailyStr) * 100) : 0,
       hourlyCostCents: costStr ? Math.round(parseFloat(costStr) * 100) : 0,
     };
 
@@ -97,6 +99,20 @@ export default function NewUserPage() {
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Charge-out rate — used when no project-specific rate is set
+            </p>
+          </FormField>
+
+          <FormField label="Default Daily Rate ($)" htmlFor="dailyRateCents">
+            <Input
+              id="dailyRateCents"
+              name="dailyRateCents"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Daily charge-out rate — used when no project-specific rate is set
             </p>
           </FormField>
 

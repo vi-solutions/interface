@@ -218,6 +218,21 @@ export default function ProjectDetailPage() {
 
   const netProfitCents = revenueCents - laborCostCents;
 
+  // Budget tracking
+  const expensesTotalCents = userExpenses.reduce(
+    (sum, e) => sum + Number(e.totalCents),
+    0,
+  );
+  const budgetUsedCents = revenueCents + expensesTotalCents;
+  const budgetRemainingCents =
+    project != null && project.budgetCents != null
+      ? project.budgetCents - budgetUsedCents
+      : null;
+  const budgetPct =
+    project?.budgetCents && project.budgetCents > 0
+      ? Math.min(100, (budgetUsedCents / project.budgetCents) * 100)
+      : null;
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -482,6 +497,108 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Budget row — only shown when a budget is set */}
+                {project.budgetCents != null && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Budget
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        $
+                        {(project.budgetCents / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Billable Time
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        $
+                        {(revenueCents / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {totalBillable.toFixed(1)}h
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Expenses
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        $
+                        {(expensesTotalCents / 100).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {userExpenses.length} item
+                        {userExpenses.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <div
+                      className={`rounded-lg border p-4 ${
+                        budgetRemainingCents != null &&
+                        budgetRemainingCents >= 0
+                          ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20"
+                          : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                      }`}
+                    >
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Budget Remaining
+                      </p>
+                      <p
+                        className={`mt-1 text-xl font-bold tabular-nums ${
+                          budgetRemainingCents != null &&
+                          budgetRemainingCents >= 0
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-red-700 dark:text-red-300"
+                        }`}
+                      >
+                        {budgetRemainingCents != null &&
+                          budgetRemainingCents < 0 &&
+                          "−"}
+                        $
+                        {budgetRemainingCents != null
+                          ? (
+                              Math.abs(budgetRemainingCents) / 100
+                            ).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : "—"}
+                      </p>
+                      {budgetPct != null && (
+                        <div className="mt-2">
+                          <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                            <div
+                              className={`h-1.5 rounded-full ${
+                                budgetPct >= 90
+                                  ? "bg-red-500"
+                                  : budgetPct >= 70
+                                    ? "bg-amber-500"
+                                    : "bg-emerald-500"
+                              }`}
+                              style={{ width: `${budgetPct}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {budgetPct.toFixed(0)}% used
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Notes ─────────────────────────────────────────── */}
                 <section className="mb-10">
                   <div className="flex items-center justify-between mb-4">

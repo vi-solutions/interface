@@ -7,8 +7,12 @@ import {
   Param,
   Body,
   Query,
+  Req,
+  ForbiddenException,
 } from "@nestjs/common";
+import { Request } from "express";
 import { TimeEntriesService } from "./time-entries.service";
+import { ProjectUserRatesService } from "../project-user-rates/project-user-rates.service";
 import type {
   CreateTimeEntryDto,
   UpdateTimeEntryDto,
@@ -21,7 +25,10 @@ import type {
 
 @Controller("time-entries")
 export class TimeEntriesController {
-  constructor(private readonly timeEntriesService: TimeEntriesService) {}
+  constructor(
+    private readonly timeEntriesService: TimeEntriesService,
+    private readonly projectUserRatesService: ProjectUserRatesService,
+  ) {}
 
   @Get()
   async find(
@@ -50,7 +57,18 @@ export class TimeEntriesController {
   @Post()
   async create(
     @Body() dto: CreateTimeEntryDto,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<TimeEntry>> {
+    if (!req.user.isAdmin) {
+      const assigned =
+        await this.projectUserRatesService.isUserAssignedToProject(
+          req.user.sub,
+          dto.projectId,
+        );
+      if (!assigned) {
+        throw new ForbiddenException("You are not assigned to this project");
+      }
+    }
     return { data: await this.timeEntriesService.create(dto) };
   }
 
