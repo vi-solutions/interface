@@ -96,6 +96,31 @@ function groupByEmployee(entries: TimeEntryWithDetails[]) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function exportCsv(
+  grouped: ReturnType<typeof groupByEmployee>,
+  periodStart: string,
+  periodEnd: string,
+) {
+  const rows: string[][] = [["Employee", "Project", "Hours"]];
+  for (const emp of grouped) {
+    for (const proj of emp.projects) {
+      rows.push([emp.name, proj.name, proj.hours.toFixed(2)]);
+    }
+    rows.push([emp.name, "TOTAL", emp.totalHours.toFixed(2)]);
+    rows.push([]);
+  }
+  const csv = rows
+    .map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `payroll-${periodStart}-${periodEnd}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── component ─────────────────────────────────────────────────────────────────
 
 export default function PayrollPage() {
@@ -181,9 +206,17 @@ export default function PayrollPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {formatDate(periodStart)} – {formatDate(periodEnd)}
                 </p>
-                <p className="text-sm font-semibold tabular-nums">
-                  {totalHours.toFixed(2)}h total
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-semibold tabular-nums">
+                    {totalHours.toFixed(2)}h total
+                  </p>
+                  <Button
+                    variant="secondary"
+                    onClick={() => exportCsv(grouped, periodStart, periodEnd)}
+                  >
+                    Export CSV
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-4">
