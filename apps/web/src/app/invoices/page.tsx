@@ -173,7 +173,9 @@ function NewInvoiceForm({
 
         {mode === "preset" ? (
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">&nbsp;</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              &nbsp;
+            </label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
@@ -188,7 +190,9 @@ function NewInvoiceForm({
           </div>
         ) : (
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">&nbsp;</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              &nbsp;
+            </label>
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -433,7 +437,9 @@ function InvoicePreviewStep({
         <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>
         {/* % fee tool */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Add fee:</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+            Add fee:
+          </span>
           <input
             type="text"
             value={feeLabel}
@@ -452,7 +458,9 @@ function InvoicePreviewStep({
           <span className="text-xs text-gray-500">% of</span>
           <select
             value={feeBase}
-            onChange={(e) => setFeeBase(e.target.value as "all" | "time" | "expense")}
+            onChange={(e) =>
+              setFeeBase(e.target.value as "all" | "time" | "expense")
+            }
             className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
           >
             <option value="time">Labour</option>

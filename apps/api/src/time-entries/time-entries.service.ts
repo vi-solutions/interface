@@ -1,4 +1,9 @@
-import { Injectable, Inject, NotFoundException, ConflictException } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
@@ -101,7 +106,10 @@ export class TimeEntriesService {
     return rows[0];
   }
 
-  private async assertNotLocked(projectId: string, date: string): Promise<void> {
+  private async assertNotLocked(
+    projectId: string,
+    date: string,
+  ): Promise<void> {
     const { rows } = await this.pool.query(
       `SELECT id FROM invoices
        WHERE project_id = $1
