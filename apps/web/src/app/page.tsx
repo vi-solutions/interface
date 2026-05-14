@@ -98,48 +98,12 @@ export default function Home() {
       <div className="max-w-6xl mx-auto p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
             {greeting}, {user?.name?.split(" ")[0]}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Here&apos;s what&apos;s happening across your projects.
+          <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-sm">
+            Here&apos;s what&apos;s happening with your projects.
           </p>
-        </div>
-
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Active Projects"
-            value={data ? String(activeProjects.length) : "—"}
-            sub={`${data?.projects.length ?? 0} total`}
-            icon={<FolderIcon />}
-            color="emerald"
-          />
-          <StatCard
-            label="Clients"
-            value={data ? String(data.clients.length) : "—"}
-            sub="total accounts"
-            icon={<UsersIcon />}
-            color="blue"
-          />
-          <StatCard
-            label="Hours This Week"
-            value={data ? weekHours.toFixed(1) : "—"}
-            sub={`${totalHours.toFixed(1)} all time`}
-            icon={<ClockIcon />}
-            color="amber"
-          />
-          <StatCard
-            label="Billable Hours"
-            value={data ? billableHours.toFixed(1) : "—"}
-            sub={
-              totalHours > 0
-                ? `${((billableHours / totalHours) * 100).toFixed(0)}% billable rate`
-                : "no entries yet"
-            }
-            icon={<CurrencyIcon />}
-            color="violet"
-          />
         </div>
 
         {/* Task Time Budgets */}
@@ -192,14 +156,15 @@ export default function Home() {
                             </div>
                             <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
                               <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  over
-                                    ? "bg-red-500"
+                                className={`h-full rounded-full transition-all duration-500`}
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor: over
+                                    ? "#ef4444"
                                     : pct >= 80
-                                      ? "bg-amber-500"
-                                      : "bg-emerald-500"
-                                }`}
-                                style={{ width: `${pct}%` }}
+                                      ? "#BA7A61"
+                                      : "#696D3D",
+                                }}
                               />
                             </div>
                           </div>
@@ -221,7 +186,7 @@ export default function Home() {
               action={
                 <Link
                   href="/projects"
-                  className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                  className="text-xs text-[#BA7A61] hover:underline"
                 >
                   View all
                 </Link>
@@ -298,16 +263,12 @@ function StatCard({
   value: string;
   sub: string;
   icon: React.ReactNode;
-  color: "emerald" | "blue" | "amber" | "violet";
+  color: "sage" | "dusk" | "mauve";
 }) {
   const colors = {
-    emerald:
-      "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400",
-    blue: "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400",
-    amber:
-      "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400",
-    violet:
-      "bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-400",
+    sage: "bg-[#F0F2E8] text-[#4F572C]",
+    dusk: "bg-[#FAD9C6] text-[#BA7A61]",
+    mauve: "bg-[#ECEAF0] text-[#625D78]",
   };
 
   return (
@@ -340,7 +301,7 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-4 py-5 text-center hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 dark:hover:border-emerald-500 transition-colors group"
+      className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-4 py-5 text-center hover:border-[#696D3D] hover:bg-[#F0F2E8] dark:hover:bg-[#696D3D]/10 dark:hover:border-[#696D3D] transition-colors group"
     >
       <span className="text-xl group-hover:scale-110 transition-transform">
         {icon}
@@ -355,17 +316,17 @@ function QuickAction({
 function phaseColor(phase: string | null): string {
   switch (phase) {
     case "assessment":
-      return "bg-blue-500";
+      return "bg-[#625D78]";
     case "analysis":
-      return "bg-indigo-500";
+      return "bg-[#BA7A61]";
     case "restoration":
-      return "bg-emerald-500";
+      return "bg-[#696D3D]";
     case "permitting":
-      return "bg-amber-500";
+      return "bg-[#4F572C]";
     case "reporting":
-      return "bg-violet-500";
+      return "bg-[#DDA991]";
     default:
-      return "bg-gray-400";
+      return "bg-[#9ca3af]";
   }
 }
 

@@ -68,7 +68,7 @@ export function Header() {
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 h-8 w-8 items-center justify-center text-sm font-medium hover:ring-2 hover:ring-emerald-400 transition"
+            className="flex items-center gap-2 rounded-full bg-dusk-pale text-sage-dark dark:bg-sage-dark dark:text-dusk-light h-8 w-8 items-center justify-center text-sm font-medium hover:ring-2 hover:ring-dusk-light transition"
             aria-label="Profile menu"
           >
             {initials}

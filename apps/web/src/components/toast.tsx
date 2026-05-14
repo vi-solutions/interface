@@ -5,7 +5,7 @@ import type { Toast, ToastVariant } from "@/lib/toast-context";
 import { useToast } from "@/lib/toast-context";
 
 const variantStyles: Record<ToastVariant, string> = {
-  success: "bg-emerald-600 text-white dark:bg-emerald-500",
+  success: "bg-sage text-white dark:bg-sage",
   error: "bg-red-600 text-white dark:bg-red-500",
   info: "bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900",
 };

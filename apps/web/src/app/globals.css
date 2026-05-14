@@ -2,9 +2,36 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  /* Interface Environmental brand palette */
+  --color-sage-dark: #4f572c;
+  --color-sage-light: #d7dacf;
+  --color-sage: #696d3d;
+  --color-mauve: #625d78;
+  --color-dusk: #ba7a61;
+  --color-dusk-light: #dda991;
+  --color-dusk-pale: #fad9c6;
+}
+
+@theme {
+  --color-warm-bg: #fafaf8;
+}
+
 @layer base {
+  body {
+    background-color: var(--color-warm-bg);
+  }
+
   :where(.dark input, .dark textarea, .dark select) {
     border-color: var(--color-gray-600);
     background-color: var(--color-gray-800);
   }
+}
+
+.icon-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

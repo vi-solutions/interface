@@ -9,7 +9,7 @@ type BadgeColor =
 
 const colors: Record<BadgeColor, string> = {
   emerald:
-    "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200",
+    "bg-dusk-pale dark:bg-sage-dark/30 text-sage-dark dark:text-dusk-light",
   blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200",
   amber: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200",
   red: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200",

@@ -4,7 +4,7 @@ import Link from "next/link";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50",
+  primary: "bg-sage text-white hover:bg-sage-dark disabled:opacity-50",
   secondary:
     "border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800",
   ghost:
@@ -13,7 +13,7 @@ const variants: Record<Variant, string> = {
 };
 
 const base =
-  "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:cursor-not-allowed";
 
 export const Button = forwardRef<
   HTMLButtonElement,
