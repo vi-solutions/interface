@@ -416,7 +416,7 @@ function IntegrationsPageContent() {
                         <li key={f.id}>
                           <button
                             onClick={() => navigateInto(f)}
-                            className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 rounded-md text-sm hover:text-gray-900 dark:hover:text-gray-100 flex items-center gap-2"
                           >
                             <FolderIcon className="h-4 w-4 text-gray-400" />
                             {f.name}

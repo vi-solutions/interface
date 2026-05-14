@@ -911,7 +911,7 @@ export default function ProjectDetailPage() {
                                           setEditingNoteId(note.id);
                                           setEditingNoteContent(note.content);
                                         }}
-                                        className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                                        className="hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-transparent"
                                       >
                                         edit
                                       </button>
@@ -935,7 +935,7 @@ export default function ProjectDetailPage() {
                                             );
                                           }
                                         }}
-                                        className="hover:text-red-500 transition-colors"
+                                        className="hover:text-red-500 transition-colors bg-transparent"
                                       >
                                         delete
                                       </button>

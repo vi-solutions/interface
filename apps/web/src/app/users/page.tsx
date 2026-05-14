@@ -301,7 +301,7 @@ export default function UsersPage() {
                         {!isSelf && (
                           <button
                             onClick={() => handleDelete(u.id, u.name)}
-                            className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:border-red-400 dark:hover:border-red-600 transition-colors"
                           >
                             Delete
                           </button>

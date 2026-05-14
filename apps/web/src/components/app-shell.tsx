@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-white/80 px-4 backdrop-blur dark:border-gray-700 dark:bg-gray-900/80 md:hidden">
         <button
           onClick={() => setSideOpen(true)}
-          className="rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+          className="rounded-md p-1.5 hover:text-gray-900 dark:hover:text-gray-100"
           aria-label="Open menu"
         >
           <MenuIcon className="h-5 w-5" />

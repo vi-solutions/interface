@@ -194,7 +194,7 @@ function TimerRow({
         <button
           type="button"
           onClick={timer.reset}
-          className="rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-700"
+          className="rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 active:text-gray-900 dark:active:text-gray-100"
         >
           Reset
         </button>
@@ -224,7 +224,7 @@ function TimeEntryRow({
         role="button"
         tabIndex={0}
         onClick={onEdit}
-        className="flex flex-1 items-center gap-3 px-4 py-3 text-left active:bg-gray-50 dark:active:bg-gray-700/30 transition-colors min-w-0"
+        className="flex flex-1 items-center gap-3 px-4 py-3 text-left transition-colors min-w-0"
       >
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">

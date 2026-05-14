@@ -156,6 +156,7 @@ export function SideNav({
             item={{ href: "/profile", label: "Settings", icon: UserIcon }}
             active={pathname === "/profile"}
             onClose={onClose}
+            size="small"
           />
 
           <button
@@ -163,7 +164,7 @@ export function SideNav({
               logout();
               onClose?.();
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
           >
             <ArrowOutIcon className="h-5 w-5 shrink-0" />
             Sign out
@@ -182,8 +183,8 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-function navLinkClass(active: boolean) {
-  return `flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-colors ${
+function navLinkClass(active: boolean, size: "default" | "small") {
+  return `flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-colors ${size === "small" ? "text-sm" : "text-base"} ${
     active
       ? "bg-(--color-sage-light) text-(--color-dusk) dark:bg-(--color-sage-dark) dark:text-(--color-dusk-light)"
       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
@@ -194,13 +195,19 @@ function NavLink({
   item,
   active,
   onClose,
+  size,
 }: {
   item: NavItem;
   active: boolean;
   onClose?: () => void;
+  size?: "default" | "small";
 }) {
   return (
-    <Link href={item.href} onClick={onClose} className={navLinkClass(active)}>
+    <Link
+      href={item.href}
+      onClick={onClose}
+      className={navLinkClass(active, size ?? "default")}
+    >
       <item.icon className="h-6 w-6 shrink-0" />
       {item.label}
     </Link>
