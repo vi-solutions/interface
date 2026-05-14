@@ -86,9 +86,9 @@ export function SideNav({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center gap-3 border-b border-gray-200 px-6 dark:border-gray-800">
-          <Logo className="h-11 w-11 shrink-0" />
-          <span className="truncate font-bold tracking-tight text-(--color-sage-dark) dark:text-gray-100">
+        <div className="flex h-20 items-center gap-3 border-b border-gray-200 py-2 px-6 dark:border-gray-800">
+          <Logo className="h-14 w-14 shrink-0" />
+          <span className="truncate font-bold tracking-tight text-lg text-(--color-sage-dark) dark:text-gray-100 leading-[1.2]">
             <p>Interface</p>
             <p>Environmental</p>
           </span>
@@ -183,7 +183,7 @@ type NavItem = {
 };
 
 function navLinkClass(active: boolean) {
-  return `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+  return `flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-colors ${
     active
       ? "bg-(--color-sage-light) text-(--color-dusk) dark:bg-(--color-sage-dark) dark:text-(--color-dusk-light)"
       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
@@ -201,7 +201,7 @@ function NavLink({
 }) {
   return (
     <Link href={item.href} onClick={onClose} className={navLinkClass(active)}>
-      <item.icon className="h-5 w-5 shrink-0" />
+      <item.icon className="h-6 w-6 shrink-0" />
       {item.label}
     </Link>
   );

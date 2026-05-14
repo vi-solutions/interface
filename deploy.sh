@@ -17,10 +17,7 @@ ssh -i ~/.ssh/interface_deploy_key "$SSH_HOST" bash << EOF
   docker compose -f docker-compose.prod.yml build
 
   echo "==> Running database migrations..."
-  docker compose -f docker-compose.prod.yml run --rm api node apps/api/dist/db/migrate.js
-
-  echo "==> Restarting services..."
-  docker compose -f docker-compose.prod.yml up -d --force-recreate
+  docker compose -f docker-compose.prod.yml run --rm api node apps/api/dist/db/migrate.js < /dev/null
 
   echo "==> Removing dangling images..."
   docker image prune -f

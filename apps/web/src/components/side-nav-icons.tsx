@@ -13,7 +13,7 @@ const strokeProps = {
 
 function IconSvg({
   className,
-  viewBox = "0 0 24 24",
+  viewBox = "0 0 26 26",
   children,
 }: IconProps & {
   viewBox?: string;
