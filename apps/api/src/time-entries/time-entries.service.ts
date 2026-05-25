@@ -199,6 +199,7 @@ export class TimeEntriesService {
     endDate: string;
     userId?: string;
     clientId?: string;
+    projectId?: string;
   }): Promise<TimeEntryReportEntry[]> {
     const params: unknown[] = [opts.startDate, opts.endDate];
     const conditions: string[] = ["t.date >= $1", "t.date <= $2"];
@@ -210,6 +211,10 @@ export class TimeEntriesService {
     if (opts.clientId) {
       params.push(opts.clientId);
       conditions.push(`c.id = $${params.length}`);
+    }
+    if (opts.projectId) {
+      params.push(opts.projectId);
+      conditions.push(`t.project_id = $${params.length}`);
     }
 
     const { rows } = await this.pool.query(

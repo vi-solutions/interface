@@ -59,6 +59,7 @@ export class TimeEntriesController {
     @Query("endDate") endDate: string,
     @Query("userId") userId: string | undefined,
     @Query("clientId") clientId: string | undefined,
+    @Query("projectId") projectId: string | undefined,
     @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<TimeEntryReportEntry>> {
     if (!req.user.isAdmin) throw new ForbiddenException();
@@ -67,6 +68,7 @@ export class TimeEntriesController {
       endDate,
       userId,
       clientId,
+      projectId,
     });
     return { data, total: data.length };
   }
