@@ -1,5 +1,11 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
+let onUnauthorizedCallback: (() => void) | null = null;
+
+export function setOnUnauthorized(fn: (() => void) | null) {
+  onUnauthorizedCallback = fn;
+}
+
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -23,6 +29,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      onUnauthorizedCallback?.();
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.message ?? `API error ${res.status}`);
   }
@@ -42,6 +51,9 @@ export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      onUnauthorizedCallback?.();
+    }
     const b = await res.json().catch(() => ({}));
     throw new Error(b.message ?? `API error ${res.status}`);
   }

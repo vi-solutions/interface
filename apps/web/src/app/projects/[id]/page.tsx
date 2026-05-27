@@ -9,6 +9,7 @@ import type {
   ProjectWithClient,
   TimeEntryWithUser,
   CreateTimeEntryDto,
+  UpdateTimeEntryDto,
   DocumentWithDetails,
   UserExpenseWithDetails,
   CreateUserExpenseDto,
@@ -58,6 +59,15 @@ export default function ProjectDetailPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editEntryForm, setEditEntryForm] = useState<{
+    userId: string;
+    taskId: string;
+    date: string;
+    hours: string;
+    description: string;
+    billable: boolean;
+  } | null>(null);
 
   const loadEntries = useCallback(() => {
     api<ApiListResponse<TimeEntryWithUser>>(`/time-entries?projectId=${id}`)
@@ -283,6 +293,49 @@ export default function ProjectDetailPage() {
       loadEntries();
     } catch {
       addToast("Failed to delete entry", "error");
+    }
+  }
+
+  function startEditEntry(entry: TimeEntryWithUser) {
+    setEditingEntryId(entry.id);
+    setEditEntryForm({
+      userId: entry.userId,
+      taskId: entry.taskId ?? "",
+      date: String(entry.date).slice(0, 10),
+      hours: String(entry.hours),
+      description: entry.description ?? "",
+      billable: entry.billable,
+    });
+  }
+
+  async function handleEditEntrySave() {
+    if (!editingEntryId || !editEntryForm) return;
+    setSaving(true);
+    const dto: UpdateTimeEntryDto = {
+      projectId: id,
+      userId: editEntryForm.userId,
+      taskId: editEntryForm.taskId || undefined,
+      date: editEntryForm.date,
+      hours: parseFloat(editEntryForm.hours),
+      description: editEntryForm.description || undefined,
+      billable: editEntryForm.billable,
+    };
+    try {
+      await api<ApiResponse<TimeEntryWithUser>>(
+        `/time-entries/${editingEntryId}`,
+        { method: "PUT", body: JSON.stringify(dto) },
+      );
+      addToast("Time entry updated");
+      setEditingEntryId(null);
+      setEditEntryForm(null);
+      loadEntries();
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to update entry",
+        "error",
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -1598,53 +1651,195 @@ export default function ProjectDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {visibleEntries.map((entry) => (
-                          <tr
-                            key={entry.id}
-                            className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-                          >
-                            <td className="px-4 py-2.5 whitespace-nowrap">
-                              {new Date(entry.date).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                              {entry.task?.name || "—"}
-                            </td>
-                            <td className="px-4 py-2.5">{entry.user.name}</td>
-                            <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
-                              {entry.description || "—"}
-                            </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                              {Number(entry.hours).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-2.5 text-center">
-                              {entry.billable ? (
-                                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                              ) : (
-                                <span className="inline-block h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
-                              )}
-                            </td>
-                            <td className="px-4 py-2.5 text-right">
-                              <button
-                                onClick={() => handleDelete(entry.id)}
-                                className="text-gray-400 hover:text-red-500 transition-colors"
-                                aria-label="Delete entry"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                  className="h-4 w-4"
+                        {visibleEntries.map((entry) =>
+                          editingEntryId === entry.id && editEntryForm ? (
+                            <tr
+                              key={entry.id}
+                              className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 bg-emerald-50/40 dark:bg-emerald-900/10"
+                            >
+                              <td className="px-3 py-2">
+                                <input
+                                  type="date"
+                                  value={editEntryForm.date}
+                                  onChange={(e) =>
+                                    setEditEntryForm((f) =>
+                                      f ? { ...f, date: e.target.value } : f,
+                                    )
+                                  }
+                                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  value={editEntryForm.taskId}
+                                  onChange={(e) =>
+                                    setEditEntryForm((f) =>
+                                      f ? { ...f, taskId: e.target.value } : f,
+                                    )
+                                  }
+                                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                 >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                                  <option value="">No task</option>
+                                  {tasks.map((t) => (
+                                    <option key={t.id} value={t.id}>
+                                      {t.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-3 py-2">
+                                {currentUser?.isAdmin ? (
+                                  <select
+                                    value={editEntryForm.userId}
+                                    onChange={(e) =>
+                                      setEditEntryForm((f) =>
+                                        f
+                                          ? { ...f, userId: e.target.value }
+                                          : f,
+                                      )
+                                    }
+                                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  >
+                                    {users.map((u) => (
+                                      <option key={u.id} value={u.id}>
+                                        {u.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="text-sm">
+                                    {entry.user.name}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={editEntryForm.description}
+                                  onChange={(e) =>
+                                    setEditEntryForm((f) =>
+                                      f
+                                        ? { ...f, description: e.target.value }
+                                        : f,
+                                    )
+                                  }
+                                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  step="0.25"
+                                  min="0.25"
+                                  value={editEntryForm.hours}
+                                  onChange={(e) =>
+                                    setEditEntryForm((f) =>
+                                      f ? { ...f, hours: e.target.value } : f,
+                                    )
+                                  }
+                                  className="w-20 rounded border border-gray-300 px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={editEntryForm.billable}
+                                  onChange={(e) =>
+                                    setEditEntryForm((f) =>
+                                      f
+                                        ? { ...f, billable: e.target.checked }
+                                        : f,
+                                    )
+                                  }
+                                  className="accent-emerald-600"
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap">
+                                <button
+                                  onClick={handleEditEntrySave}
+                                  disabled={saving}
+                                  className="text-xs rounded bg-emerald-600 text-white px-2.5 py-1 hover:bg-emerald-700 disabled:opacity-50 transition-colors mr-1"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingEntryId(null);
+                                    setEditEntryForm(null);
+                                  }}
+                                  className="text-xs rounded border border-gray-300 px-2.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </td>
+                            </tr>
+                          ) : (
+                            <tr
+                              key={entry.id}
+                              className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                            >
+                              <td className="px-4 py-2.5 whitespace-nowrap">
+                                {new Date(entry.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                                {entry.task?.name || "—"}
+                              </td>
+                              <td className="px-4 py-2.5">{entry.user.name}</td>
+                              <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                                {entry.description || "—"}
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums font-medium">
+                                {Number(entry.hours).toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                {entry.billable ? (
+                                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                                ) : (
+                                  <span className="inline-block h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {(currentUser?.isAdmin ||
+                                    entry.userId === currentUser?.id) && (
+                                    <button
+                                      onClick={() => startEditEntry(entry)}
+                                      className="text-gray-400 hover:text-emerald-600 transition-colors"
+                                      aria-label="Edit entry"
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                        className="h-4 w-4"
+                                      >
+                                        <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDelete(entry.id)}
+                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                    aria-label="Delete entry"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                      className="h-4 w-4"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ),
+                        )}
                       </tbody>
                     </table>
                   </div>

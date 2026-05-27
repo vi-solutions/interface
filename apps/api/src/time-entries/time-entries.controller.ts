@@ -100,12 +100,24 @@ export class TimeEntriesController {
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateTimeEntryDto,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<TimeEntry>> {
+    if (!req.user.isAdmin) {
+      const entry = await this.timeEntriesService.findById(id);
+      if (entry.userId !== req.user.sub) throw new ForbiddenException();
+    }
     return { data: await this.timeEntriesService.update(id, dto) };
   }
 
   @Delete(":id")
-  async remove(@Param("id") id: string): Promise<void> {
+  async remove(
+    @Param("id") id: string,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
+  ): Promise<void> {
+    if (!req.user.isAdmin) {
+      const entry = await this.timeEntriesService.findById(id);
+      if (entry.userId !== req.user.sub) throw new ForbiddenException();
+    }
     await this.timeEntriesService.remove(id);
   }
 }

@@ -752,41 +752,43 @@ export default function ReportsPage() {
               </select>
             </div>
 
-            {/* Date range */}
-            <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Date range
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  max={endDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className={inputCls}
-                />
-                <span className="text-xs text-gray-500">to</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  min={startDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={inputCls}
-                />
+            {/* Date range + Run report */}
+            <div className="flex items-end gap-2">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  Date range
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    max={endDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={inputCls}
+                  />
+                  <span className="text-xs text-gray-500">to</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
               </div>
-            </div>
 
-            <Button
-              onClick={handleRun}
-              disabled={
-                loading ||
-                (mode === "employee" && !selectedUserId) ||
-                (mode === "client" && !selectedClientId) ||
-                (mode === "project" && !selectedProjectId)
-              }
-            >
-              {loading ? "Loading…" : "Run report"}
-            </Button>
+              <Button
+                onClick={handleRun}
+                disabled={
+                  loading ||
+                  (mode === "employee" && !selectedUserId) ||
+                  (mode === "client" && !selectedClientId) ||
+                  (mode === "project" && !selectedProjectId)
+                }
+              >
+                {loading ? "Loading…" : "Run report"}
+              </Button>
+            </div>
           </div>
           {error && (
             <p className="mt-3 text-sm text-red-600 dark:text-red-400">

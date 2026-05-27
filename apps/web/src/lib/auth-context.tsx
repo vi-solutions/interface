@@ -9,7 +9,7 @@ import {
   useRef,
 } from "react";
 import type { AuthResponse } from "@interface/shared";
-import { api } from "@/lib/api";
+import { api, setOnUnauthorized } from "@/lib/api";
 import type { ApiResponse } from "@interface/shared";
 
 interface AuthContextValue {
@@ -105,6 +105,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("auth");
     setToken(null);
     setUser(null);
+  }, []);
+
+  // Register a callback so any 401 from api() auto-logs out
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      localStorage.removeItem("auth");
+      setToken(null);
+      setUser(null);
+      window.location.replace("/login");
+    });
+    return () => setOnUnauthorized(null);
   }, []);
 
   return (
