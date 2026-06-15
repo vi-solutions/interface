@@ -135,7 +135,19 @@ export class ProjectUserRatesService {
     projectId: string,
   ): Promise<boolean> {
     const { rows } = await this.pool.query(
-      `SELECT 1 FROM project_user_rates WHERE user_id = $1 AND project_id = $2 LIMIT 1`,
+      `SELECT 1
+       FROM projects p
+       WHERE p.id = $2
+         AND (
+           p.project_manager_id = $1
+           OR EXISTS (
+             SELECT 1
+             FROM project_user_rates pur
+             WHERE pur.user_id = $1
+               AND pur.project_id = $2
+           )
+         )
+       LIMIT 1`,
       [userId, projectId],
     );
     return rows.length > 0;

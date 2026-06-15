@@ -29,7 +29,7 @@ export class ProjectsController {
     @Query("userId") userId?: string,
     @Req() req?: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<ProjectWithClient>> {
-    // Non-admin users always see only their assigned projects
+    // Non-admin users always see projects they are assigned to or manage.
     const effectiveUserId = req?.user?.isAdmin ? userId : req?.user?.sub;
     const data = effectiveUserId
       ? await this.projectsService.findByUser(effectiveUserId)

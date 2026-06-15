@@ -64,7 +64,8 @@ export class ProjectsService {
        FROM projects p
        JOIN clients c ON c.id = p.client_id
        LEFT JOIN users pm ON pm.id = p.project_manager_id
-       WHERE p.id IN (SELECT project_id FROM project_user_rates WHERE user_id = $1)
+       WHERE p.project_manager_id = $1
+          OR p.id IN (SELECT project_id FROM project_user_rates WHERE user_id = $1)
        ORDER BY p.updated_at DESC`,
       [userId],
     );
