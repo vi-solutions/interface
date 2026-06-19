@@ -44,6 +44,23 @@ export interface InvoiceLineItemDto {
   unitCents: number;
 }
 
+export interface InvoiceRoundingByEmployee {
+  userId: string;
+  userName: string;
+  rawHours: number;
+  roundedHours: number;
+  roundedUpHours: number;
+}
+
+export interface InvoiceRoundingSummary {
+  projectId: string;
+  projectName: string;
+  rawHours: number;
+  roundedHours: number;
+  roundedUpHours: number;
+  employees: InvoiceRoundingByEmployee[];
+}
+
 export interface CreateInvoiceDto {
   projectId: string;
   periodStart: string;
@@ -61,4 +78,5 @@ export interface InvoicePreview {
   periodEnd: string;
   lineItems: InvoiceLineItemDto[];
   totalCents: number;
+  roundingSummary: InvoiceRoundingSummary;
 }

@@ -20,6 +20,7 @@ import { GoogleDriveModule } from "./google-drive/google-drive.module";
 import { ProjectNotesModule } from "./project-notes/project-notes.module";
 import { InvoicesModule } from "./invoices/invoices.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
+import { PayPeriodLocksModule } from "./pay-period-locks/pay-period-locks.module";
 import { AuthGuard } from "./auth/auth.guard";
 
 @Module({
@@ -44,6 +45,7 @@ import { AuthGuard } from "./auth/auth.guard";
     ProjectNotesModule,
     InvoicesModule,
     WebhooksModule,
+    PayPeriodLocksModule,
   ],
   providers: [{ provide: APP_GUARD, useExisting: AuthGuard }],
 })

@@ -25,6 +25,11 @@ export class InvoicesService {
     private readonly qbo: QuickbooksService,
   ) {}
 
+  private roundUpToHalfHour(hours: number): number {
+    if (hours <= 0) return 0;
+    return Math.ceil((hours - Number.EPSILON) * 2) / 2;
+  }
+
   /* ------------------------------------------------------------------ */
   /*  Preview — aggregate billable data without persisting               */
   /* ------------------------------------------------------------------ */
@@ -47,7 +52,8 @@ export class InvoicesService {
     // Billable time entries grouped by user, joined with their hourly rate
     const { rows: timeRows } = await this.pool.query(
       `SELECT u.id AS user_id, u.name AS user_name,
-              SUM(te.hours) AS total_hours,
+        SUM(te.hours) AS total_hours,
+        SUM(CEIL(te.hours * 2) / 2.0) AS total_hours_rounded,
               COALESCE(pur.hourly_rate_cents, u.rate_cents) AS hourly_rate_cents
        FROM time_entries te
        JOIN users u ON u.id = te.user_id
@@ -77,20 +83,28 @@ export class InvoicesService {
     );
 
     const lineItems: InvoiceLineItemDto[] = [];
-    let sortOrder = 0;
+    const roundingEmployees: InvoicePreview["roundingSummary"]["employees"] =
+      [];
 
     for (const row of timeRows) {
       const hours = Number(row.total_hours);
+      const roundedHours = Number(row.total_hours_rounded);
       const rateCents = row.hourly_rate_cents
         ? Number(row.hourly_rate_cents)
         : 0;
       lineItems.push({
         type: "time",
         description: `Time — ${row.user_name}`,
-        quantity: Math.round(hours * 100) / 100,
+        quantity: roundedHours,
         unitCents: rateCents,
       });
-      sortOrder++;
+      roundingEmployees.push({
+        userId: row.user_id,
+        userName: row.user_name,
+        rawHours: hours,
+        roundedHours,
+        roundedUpHours: roundedHours - hours,
+      });
     }
 
     for (const row of expenseRows) {
@@ -103,8 +117,17 @@ export class InvoicesService {
         quantity: 1,
         unitCents: Number(row.total_cents),
       });
-      sortOrder++;
     }
+
+    const roundingRawHours = roundingEmployees.reduce(
+      (sum, employee) => sum + employee.rawHours,
+      0,
+    );
+    const roundingRoundedHours = roundingEmployees.reduce(
+      (sum, employee) => sum + employee.roundedHours,
+      0,
+    );
+    const roundingRoundedUpHours = roundingRoundedHours - roundingRawHours;
 
     const totalCents = lineItems.reduce(
       (s, li) => s + Math.round(li.quantity * li.unitCents),
@@ -118,6 +141,14 @@ export class InvoicesService {
       periodEnd,
       lineItems,
       totalCents,
+      roundingSummary: {
+        projectId,
+        projectName,
+        rawHours: roundingRawHours,
+        roundedHours: roundingRoundedHours,
+        roundedUpHours: roundingRoundedUpHours,
+        employees: roundingEmployees,
+      },
     };
   }
 
@@ -125,7 +156,12 @@ export class InvoicesService {
   /*  CRUD                                                               */
   /* ------------------------------------------------------------------ */
 
-  async findAll(): Promise<InvoiceListItem[]> {
+  async findAll(projectId?: string): Promise<InvoiceListItem[]> {
+    const params: unknown[] = [];
+    const projectFilter = projectId
+      ? ` AND i.project_id = $${params.push(projectId)}`
+      : "";
+
     const { rows } = await this.pool.query(
       `SELECT i.id, i.project_id AS "projectId",
               i.period_start AS "periodStart", i.period_end AS "periodEnd",
@@ -136,8 +172,9 @@ export class InvoicesService {
               json_build_object('id', p.id, 'name', p.name) AS project
        FROM invoices i
        JOIN projects p ON p.id = i.project_id
-       WHERE i.status != 'void'
+       WHERE i.status != 'void'${projectFilter}
        ORDER BY i.created_at DESC`,
+      params,
     );
     return rows;
   }
@@ -174,21 +211,37 @@ export class InvoicesService {
   async create(dto: CreateInvoiceDto): Promise<InvoiceWithDetails> {
     // Validate project exists and has a QBO customer
     const { rows: projectRows } = await this.pool.query(
-      `SELECT p.name, c.qbo_customer_id
+      `SELECT p.name, c.qbo_customer_id, pc.email AS client_email
        FROM projects p JOIN clients c ON c.id = p.client_id
+       LEFT JOIN LATERAL (
+         SELECT email
+         FROM contacts
+         WHERE client_id = c.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) pc ON true
        WHERE p.id = $1`,
       [dto.projectId],
     );
     if (!projectRows[0]) throw new NotFoundException("Project not found");
 
-    const { qbo_customer_id: customerRef } = projectRows[0];
+    const { qbo_customer_id: customerRef, client_email: clientEmail } =
+      projectRows[0];
     if (!customerRef) {
       throw new BadRequestException(
         "This project's client is not linked to a QuickBooks customer.",
       );
     }
 
-    const totalCents = dto.lineItems.reduce(
+    const lineItems = dto.lineItems.map((li) => ({
+      ...li,
+      quantity:
+        li.type === "time"
+          ? this.roundUpToHalfHour(Number(li.quantity))
+          : Number(li.quantity),
+    }));
+
+    const totalCents = lineItems.reduce(
       (s, li) => s + Math.round(li.quantity * li.unitCents),
       0,
     );
@@ -199,10 +252,11 @@ export class InvoicesService {
     if (conn) {
       qboInvoiceId = await this.qbo.createInvoice({
         customerRef,
+        customerEmail: clientEmail ?? undefined,
         txnDate: dto.periodEnd,
         dueDate: dto.dueDate,
         memo: dto.notes ?? undefined,
-        lineItems: dto.lineItems.map((li) => ({
+        lineItems: lineItems.map((li) => ({
           description: li.description,
           quantity: li.quantity,
           unitCents: li.unitCents,
@@ -229,8 +283,8 @@ export class InvoicesService {
       ],
     );
 
-    for (let i = 0; i < dto.lineItems.length; i++) {
-      const li = dto.lineItems[i];
+    for (let i = 0; i < lineItems.length; i++) {
+      const li = lineItems[i];
       const liTotalCents = Math.round(li.quantity * li.unitCents);
       await this.pool.query(
         `INSERT INTO invoice_line_items

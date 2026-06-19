@@ -37,6 +37,7 @@ export class TimeEntriesController {
     @Query("userId") userId?: string,
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
+    @Query("roundUpIncrementHours") roundUpIncrementHours?: string,
     @Req() req?: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<TimeEntryWithUser | TimeEntryWithDetails>> {
     if (projectId) {
@@ -45,10 +46,17 @@ export class TimeEntriesController {
     }
     // Non-admin can only see their own entries
     const effectiveUserId = req?.user?.isAdmin ? userId : req?.user?.sub;
+    const roundUpIncrement = roundUpIncrementHours
+      ? Number(roundUpIncrementHours)
+      : undefined;
     const data = await this.timeEntriesService.findRecent({
       startDate,
       endDate,
       userId: effectiveUserId,
+      roundUpIncrementHours:
+        roundUpIncrement !== undefined && Number.isFinite(roundUpIncrement)
+          ? roundUpIncrement
+          : undefined,
     });
     return { data, total: data.length };
   }
@@ -93,7 +101,11 @@ export class TimeEntriesController {
         throw new ForbiddenException("You are not assigned to this project");
       }
     }
-    return { data: await this.timeEntriesService.create(dto) };
+    return {
+      data: await this.timeEntriesService.create(dto, {
+        allowLocked: req.user.isAdmin,
+      }),
+    };
   }
 
   @Put(":id")
@@ -106,7 +118,11 @@ export class TimeEntriesController {
       const entry = await this.timeEntriesService.findById(id);
       if (entry.userId !== req.user.sub) throw new ForbiddenException();
     }
-    return { data: await this.timeEntriesService.update(id, dto) };
+    return {
+      data: await this.timeEntriesService.update(id, dto, {
+        allowLocked: req.user.isAdmin,
+      }),
+    };
   }
 
   @Delete(":id")
@@ -118,6 +134,8 @@ export class TimeEntriesController {
       const entry = await this.timeEntriesService.findById(id);
       if (entry.userId !== req.user.sub) throw new ForbiddenException();
     }
-    await this.timeEntriesService.remove(id);
+    await this.timeEntriesService.remove(id, {
+      allowLocked: req.user.isAdmin,
+    });
   }
 }

@@ -501,14 +501,14 @@ export class QuickbooksService {
     return account.Id;
   }
 
-  /** Find or create a "Services" item to use as the line item product/service ref */
+  /** Find or create a "Service" item to use as the line item product/service ref */
   private async getServiceItemRef(): Promise<string> {
     if (this.serviceItemId) return this.serviceItemId;
 
     const searchResult = await this.qboGet<{
       QueryResponse: { Item?: Array<{ Id: string }> };
     }>(
-      `/query?query=${encodeURIComponent("SELECT Id FROM Item WHERE Name = 'Services' MAXRESULTS 1")}`,
+      `/query?query=${encodeURIComponent("SELECT Id FROM Item WHERE Name = 'Service' MAXRESULTS 1")}`,
     );
 
     const existing = searchResult.QueryResponse.Item?.[0];
@@ -519,7 +519,7 @@ export class QuickbooksService {
 
     const incomeAccountId = await this.getIncomeAccountRef();
     const created = await this.qboPost<{ Item: { Id: string } }>("/item", {
-      Name: "Services",
+      Name: "Service",
       Type: "Service",
       IncomeAccountRef: { value: incomeAccountId },
     });
@@ -559,6 +559,7 @@ export class QuickbooksService {
 
   async createInvoice(params: {
     customerRef: string;
+    customerEmail?: string;
     txnDate: string;
     dueDate?: string;
     lineItems: Array<{
@@ -592,6 +593,8 @@ export class QuickbooksService {
     };
     if (params.dueDate) body.DueDate = params.dueDate;
     if (params.memo) body.CustomerMemo = { value: params.memo };
+    if (params.customerEmail)
+      body.BillEmail = { Address: params.customerEmail };
 
     const result = await this.qboPost<{ Invoice: { Id: string } }>(
       "/invoice",

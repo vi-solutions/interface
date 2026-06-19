@@ -27,7 +27,7 @@ export class ClientsService {
          SELECT id, name, email, title
          FROM contacts
          WHERE client_id = c.id
-         ORDER BY created_at ASC
+         ORDER BY created_at DESC
          LIMIT 1
        ) pc ON true
        ORDER BY c.name`,
@@ -51,7 +51,7 @@ export class ClientsService {
          SELECT id, name, email, title
          FROM contacts
          WHERE client_id = c.id
-         ORDER BY created_at ASC
+         ORDER BY created_at DESC
          LIMIT 1
        ) pc ON true
        ORDER BY c.id, c.name`,

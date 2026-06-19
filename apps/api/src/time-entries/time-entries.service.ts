@@ -20,15 +20,27 @@ import type {
 export class TimeEntriesService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
+  private roundUpToIncrement(hours: number, increment: number): number {
+    if (hours <= 0) return 0;
+    return Math.ceil((hours - Number.EPSILON) / increment) * increment;
+  }
+
   async findRecent(
     opts: {
       limit?: number;
       startDate?: string;
       endDate?: string;
       userId?: string;
+      roundUpIncrementHours?: number;
     } = {},
   ): Promise<TimeEntryWithDetails[]> {
-    const { limit = 50, startDate, endDate, userId } = opts;
+    const {
+      limit = 50,
+      startDate,
+      endDate,
+      userId,
+      roundUpIncrementHours,
+    } = opts;
     const params: unknown[] = [];
     const conditions: string[] = [];
 
@@ -72,7 +84,12 @@ export class TimeEntriesService {
        ${limitClause}`,
       params,
     );
-    return rows;
+    if (!roundUpIncrementHours || roundUpIncrementHours <= 0) return rows;
+
+    return rows.map((row) => ({
+      ...row,
+      hours: this.roundUpToIncrement(Number(row.hours), roundUpIncrementHours),
+    }));
   }
 
   async findByProject(projectId: string): Promise<TimeEntryWithUser[]> {
@@ -110,8 +127,11 @@ export class TimeEntriesService {
   private async assertNotLocked(
     projectId: string,
     date: string,
+    opts: { allowLocked?: boolean } = {},
   ): Promise<void> {
-    const { rows } = await this.pool.query(
+    if (opts.allowLocked) return;
+
+    const { rows: invoiceRows } = await this.pool.query(
       `SELECT id FROM invoices
        WHERE project_id = $1
          AND period_start <= $2
@@ -120,15 +140,31 @@ export class TimeEntriesService {
        LIMIT 1`,
       [projectId, date],
     );
-    if (rows[0]) {
+    if (invoiceRows[0]) {
       throw new ConflictException(
         "This entry falls within a locked (sent/paid) invoice period and cannot be modified.",
       );
     }
+
+    const { rows: payPeriodRows } = await this.pool.query(
+      `SELECT id FROM pay_period_locks
+       WHERE period_start <= $1
+         AND period_end >= $1
+       LIMIT 1`,
+      [date],
+    );
+    if (payPeriodRows[0]) {
+      throw new ConflictException(
+        "This entry falls within a locked pay period and cannot be modified.",
+      );
+    }
   }
 
-  async create(dto: CreateTimeEntryDto): Promise<TimeEntry> {
-    await this.assertNotLocked(dto.projectId, dto.date);
+  async create(
+    dto: CreateTimeEntryDto,
+    opts: { allowLocked?: boolean } = {},
+  ): Promise<TimeEntry> {
+    await this.assertNotLocked(dto.projectId, dto.date, opts);
     const id = uuid();
     const { rows } = await this.pool.query(
       `INSERT INTO time_entries (id, project_id, user_id, task_id, date, hours, description, billable)
@@ -152,13 +188,22 @@ export class TimeEntriesService {
     return rows[0];
   }
 
-  async update(id: string, dto: UpdateTimeEntryDto): Promise<TimeEntry> {
+  async update(
+    id: string,
+    dto: UpdateTimeEntryDto,
+    opts: { allowLocked?: boolean } = {},
+  ): Promise<TimeEntry> {
     const existing = await this.findById(id);
-    await this.assertNotLocked(existing.projectId, existing.date);
+    await this.assertNotLocked(existing.projectId, existing.date, opts);
     const newProjectId = dto.projectId ?? existing.projectId;
+    const newUserId = dto.userId ?? existing.userId;
     const newDate = dto.date ?? existing.date;
-    if (newProjectId !== existing.projectId || newDate !== existing.date) {
-      await this.assertNotLocked(newProjectId, newDate);
+    if (
+      newProjectId !== existing.projectId ||
+      newUserId !== existing.userId ||
+      newDate !== existing.date
+    ) {
+      await this.assertNotLocked(newProjectId, newDate, opts);
     }
     const { rows } = await this.pool.query(
       `UPDATE time_entries SET project_id = $2, user_id = $3, task_id = $4,
@@ -183,9 +228,12 @@ export class TimeEntriesService {
     return rows[0];
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(
+    id: string,
+    opts: { allowLocked?: boolean } = {},
+  ): Promise<void> {
     const entry = await this.findById(id);
-    await this.assertNotLocked(entry.projectId, entry.date);
+    await this.assertNotLocked(entry.projectId, entry.date, opts);
     const result = await this.pool.query(
       "DELETE FROM time_entries WHERE id = $1",
       [id],
@@ -235,9 +283,12 @@ export class TimeEntriesService {
        JOIN clients c ON c.id = p.client_id
        LEFT JOIN tasks tk ON tk.id = t.task_id
        WHERE ${conditions.join(" AND ")}
-       ORDER BY t.date ASC, c.name ASC, p.name ASC, t.created_at ASC`,
+       ORDER BY t.date DESC, c.name ASC, p.name ASC, t.created_at DESC`,
       params,
     );
-    return rows;
+    return rows.map((row) => ({
+      ...row,
+      hours: this.roundUpToIncrement(Number(row.hours), 0.5),
+    }));
   }
 }

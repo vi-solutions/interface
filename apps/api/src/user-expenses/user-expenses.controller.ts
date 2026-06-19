@@ -62,29 +62,46 @@ export class UserExpensesController {
     @Body() dto: CreateUserExpenseDto,
     @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<UserExpense>> {
+    const effectiveDto: CreateUserExpenseDto = {
+      ...dto,
+      userId: req.user.isAdmin ? dto.userId : req.user.sub,
+    };
+
     if (!req.user.isAdmin) {
       const assigned =
         await this.projectUserRatesService.isUserAssignedToProject(
           req.user.sub,
-          dto.projectId,
+          effectiveDto.projectId,
         );
       if (!assigned) {
         throw new ForbiddenException("You are not assigned to this project");
       }
     }
-    return { data: await this.userExpensesService.create(dto) };
+    return { data: await this.userExpensesService.create(effectiveDto) };
   }
 
   @Put(":id")
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateUserExpenseDto,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<UserExpense>> {
+    if (!req.user.isAdmin) {
+      const existing = await this.userExpensesService.findById(id);
+      if (existing.userId !== req.user.sub) throw new ForbiddenException();
+    }
     return { data: await this.userExpensesService.update(id, dto) };
   }
 
   @Delete(":id")
-  async remove(@Param("id") id: string): Promise<void> {
+  async remove(
+    @Param("id") id: string,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
+  ): Promise<void> {
+    if (!req.user.isAdmin) {
+      const existing = await this.userExpensesService.findById(id);
+      if (existing.userId !== req.user.sub) throw new ForbiddenException();
+    }
     await this.userExpensesService.remove(id);
   }
 

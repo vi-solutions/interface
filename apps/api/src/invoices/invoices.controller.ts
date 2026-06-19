@@ -25,8 +25,8 @@ export class InvoicesController {
   }
 
   @Get()
-  findAll() {
-    return this.invoicesService.findAll().then((data) => ({ data }));
+  findAll(@Query("projectId") projectId?: string) {
+    return this.invoicesService.findAll(projectId).then((data) => ({ data }));
   }
 
   @Get(":id")
