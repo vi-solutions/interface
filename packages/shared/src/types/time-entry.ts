@@ -7,6 +7,7 @@ export interface TimeEntry {
   hours: number;
   description: string | null;
   billable: boolean;
+  locked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -14,7 +15,7 @@ export interface TimeEntry {
 export interface CreateTimeEntryDto {
   projectId: string;
   userId: string;
-  taskId?: string;
+  taskId?: string | null;
   date: string;
   hours: number;
   description?: string;

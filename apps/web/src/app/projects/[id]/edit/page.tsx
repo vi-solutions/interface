@@ -22,6 +22,9 @@ import type {
   ProjectContactWithDetails,
   Task,
   CreateTaskDto,
+  UpdateTaskDto,
+  TaskUserBudgetWithUser,
+  CreateTaskUserBudgetDto,
   ProjectUserRateWithUser,
   CreateProjectUserRateDto,
 } from "@interface/shared";
@@ -79,6 +82,29 @@ export default function EditProjectPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [savingTask, setSavingTask] = useState(false);
+  const [newTaskUserBudgets, setNewTaskUserBudgets] = useState<
+    { userId: string; budgetHours: string }[]
+  >([]);
+  const [newTaskBudgetHours, setNewTaskBudgetHours] = useState("");
+  const [taskUserBudgets, setTaskUserBudgets] = useState<
+    Record<string, TaskUserBudgetWithUser[]>
+  >({});
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [addingBudgetForTaskId, setAddingBudgetForTaskId] = useState<
+    string | null
+  >(null);
+  const [newBudgetUserId, setNewBudgetUserId] = useState("");
+  const [newBudgetHours, setNewBudgetHours] = useState("");
+  const [savingUserBudget, setSavingUserBudget] = useState(false);
+  const [editingUserBudgetId, setEditingUserBudgetId] = useState<string | null>(
+    null,
+  );
+  const [editingUserBudgetHours, setEditingUserBudgetHours] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskName, setEditingTaskName] = useState("");
+  const [editingTaskDescription, setEditingTaskDescription] = useState("");
+  const [editingTaskBudgetHours, setEditingTaskBudgetHours] = useState("");
+  const [savingTaskEdit, setSavingTaskEdit] = useState(false);
   const [projectUserRates, setProjectUserRates] = useState<
     ProjectUserRateWithUser[]
   >([]);
@@ -113,7 +139,24 @@ export default function EditProjectPage() {
 
   const loadTasks = useCallback(() => {
     api<ApiListResponse<Task>>(`/tasks?projectId=${id}`)
-      .then((res) => setTasks(res.data))
+      .then(async (res) => {
+        setTasks(res.data);
+        const results = await Promise.all(
+          res.data.map((t) =>
+            api<ApiListResponse<TaskUserBudgetWithUser>>(
+              `/tasks/${t.id}/user-budgets`,
+            )
+              .then((r) => ({ taskId: t.id, budgets: r.data }))
+              .catch(() => ({
+                taskId: t.id,
+                budgets: [] as TaskUserBudgetWithUser[],
+              })),
+          ),
+        );
+        const map: Record<string, TaskUserBudgetWithUser[]> = {};
+        for (const r of results) map[r.taskId] = r.budgets;
+        setTaskUserBudgets(map);
+      })
       .catch(() => {});
   }, [id]);
 
@@ -1000,7 +1043,11 @@ export default function EditProjectPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Tasks</h2>
               <button
-                onClick={() => setShowTaskForm((v) => !v)}
+                onClick={() => {
+                  setShowTaskForm((v) => !v);
+                  setNewTaskUserBudgets([]);
+                  setNewTaskBudgetHours("");
+                }}
                 className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
               >
                 {showTaskForm ? "Cancel" : "+ Add Task"}
@@ -1011,9 +1058,24 @@ export default function EditProjectPage() {
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  const allocated = newTaskUserBudgets.reduce(
+                    (sum, row) =>
+                      sum + (row.budgetHours ? parseFloat(row.budgetHours) : 0),
+                    0,
+                  );
+                  const totalBudget = newTaskBudgetHours
+                    ? parseFloat(newTaskBudgetHours)
+                    : null;
+                  if (totalBudget != null && allocated > totalBudget) {
+                    addToast(
+                      "Per-person budgets exceed the total task budget",
+                      "error",
+                    );
+                    return;
+                  }
                   setSavingTask(true);
                   const form = new FormData(e.currentTarget);
-                  const budgetStr = form.get("budgetHours") as string;
+                  const budgetStr = newTaskBudgetHours;
                   const dto: CreateTaskDto = {
                     projectId: id,
                     name: form.get("name") as string,
@@ -1022,12 +1084,31 @@ export default function EditProjectPage() {
                     budgetHours: budgetStr ? parseFloat(budgetStr) : undefined,
                   };
                   try {
-                    await api<ApiResponse<Task>>("/tasks", {
+                    const res = await api<ApiResponse<Task>>("/tasks", {
                       method: "POST",
                       body: JSON.stringify(dto),
                     });
+                    const taskId = res.data.id;
+                    await Promise.all(
+                      newTaskUserBudgets
+                        .filter((row) => row.userId)
+                        .map((row) =>
+                          api(`/tasks/${taskId}/user-budgets`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              taskId,
+                              userId: row.userId,
+                              budgetHours: row.budgetHours
+                                ? parseFloat(row.budgetHours)
+                                : undefined,
+                            } as CreateTaskUserBudgetDto),
+                          }),
+                        ),
+                    );
                     addToast("Task added");
                     setShowTaskForm(false);
+                    setNewTaskUserBudgets([]);
+                    setNewTaskBudgetHours("");
                     loadTasks();
                   } catch (err) {
                     addToast(
@@ -1061,6 +1142,8 @@ export default function EditProjectPage() {
                     step="0.5"
                     min="0"
                     placeholder="e.g. 40"
+                    value={newTaskBudgetHours}
+                    onChange={(e) => setNewTaskBudgetHours(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
@@ -1073,6 +1156,115 @@ export default function EditProjectPage() {
                     placeholder="Optional description"
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Per-Person Budgets
+                  </label>
+                  <div className="space-y-2">
+                    {newTaskUserBudgets.map((row, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          value={row.userId}
+                          onChange={(e) =>
+                            setNewTaskUserBudgets((prev) =>
+                              prev.map((r, i) =>
+                                i === idx
+                                  ? { ...r, userId: e.target.value }
+                                  : r,
+                              ),
+                            )
+                          }
+                          className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        >
+                          <option value="">Select person…</option>
+                          {users
+                            .filter(
+                              (u) =>
+                                u.id === row.userId ||
+                                !newTaskUserBudgets.some(
+                                  (r, i) => i !== idx && r.userId === u.id,
+                                ),
+                            )
+                            .map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name}
+                              </option>
+                            ))}
+                        </select>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          placeholder="Hours"
+                          value={row.budgetHours}
+                          onChange={(e) =>
+                            setNewTaskUserBudgets((prev) =>
+                              prev.map((r, i) =>
+                                i === idx
+                                  ? { ...r, budgetHours: e.target.value }
+                                  : r,
+                              ),
+                            )
+                          }
+                          className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNewTaskUserBudgets((prev) =>
+                              prev.filter((_, i) => i !== idx),
+                            )
+                          }
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          aria-label="Remove"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="h-4 w-4"
+                          >
+                            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewTaskUserBudgets((prev) => [
+                          ...prev,
+                          { userId: "", budgetHours: "" },
+                        ])
+                      }
+                      className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 font-medium"
+                    >
+                      + Add person
+                    </button>
+                    {newTaskUserBudgets.length > 0 && (() => {
+                      const allocated = newTaskUserBudgets.reduce(
+                        (sum, row) =>
+                          sum +
+                          (row.budgetHours ? parseFloat(row.budgetHours) : 0),
+                        0,
+                      );
+                      const total = newTaskBudgetHours
+                        ? parseFloat(newTaskBudgetHours)
+                        : null;
+                      const over = total != null && allocated > total;
+                      return (
+                        <p
+                          className={`text-sm tabular-nums ${over ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-gray-400"}`}
+                        >
+                          {allocated.toFixed(1)}h allocated
+                          {total != null
+                            ? ` / ${total.toFixed(1)}h total budget`
+                            : ""}
+                        </p>
+                      );
+                    })()}
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   <button
@@ -1107,56 +1299,526 @@ export default function EditProjectPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tasks.map((t) => (
-                      <tr
-                        key={t.id}
-                        className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-                      >
-                        <td className="px-4 py-2.5">
-                          <p className="font-medium">{t.name}</p>
-                          {t.description && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {t.description}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
-                          {t.budgetHours != null
-                            ? `${Number(t.budgetHours)}h`
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <button
-                            onClick={async () => {
-                              try {
-                                await api(`/tasks/${t.id}`, {
-                                  method: "DELETE",
-                                });
-                                addToast("Task removed");
-                                loadTasks();
-                              } catch {
-                                addToast("Failed to remove task", "error");
-                              }
-                            }}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                            aria-label="Remove task"
+                    {tasks.map((t) => {
+                      const isExpanded = expandedTaskId === t.id;
+                      const isEditingTask = editingTaskId === t.id;
+                      const userBudgets = taskUserBudgets[t.id] ?? [];
+                      return (
+                        <>
+                          <tr
+                            key={t.id}
+                            className="border-b border-gray-100 dark:border-gray-700/50"
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              className="h-4 w-4"
+                            <td className="px-4 py-2.5">
+                              {isEditingTask ? (
+                                <div className="flex flex-col gap-1.5">
+                                  <input
+                                    autoFocus
+                                    value={editingTaskName}
+                                    onChange={(e) =>
+                                      setEditingTaskName(e.target.value)
+                                    }
+                                    placeholder="Name"
+                                    className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                  />
+                                  <input
+                                    value={editingTaskDescription}
+                                    onChange={(e) =>
+                                      setEditingTaskDescription(e.target.value)
+                                    }
+                                    placeholder="Description (optional)"
+                                    className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex items-start gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedTaskId(
+                                        isExpanded ? null : t.id,
+                                      )
+                                    }
+                                    className="mt-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                                    aria-label={
+                                      isExpanded ? "Collapse" : "Expand"
+                                    }
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                      className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </button>
+                                  <div>
+                                    <p className="font-medium">{t.name}</p>
+                                    {t.description && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {t.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                              {isEditingTask ? (
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  min="0"
+                                  placeholder="—"
+                                  value={editingTaskBudgetHours}
+                                  onChange={(e) =>
+                                    setEditingTaskBudgetHours(e.target.value)
+                                  }
+                                  className="w-24 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
+                              ) : (
+                                t.budgetHours != null
+                                  ? `${Number(t.budgetHours)}h`
+                                  : "—"
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              {isEditingTask ? (
+                                <div className="flex items-center justify-end gap-3">
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      savingTaskEdit || !editingTaskName.trim()
+                                    }
+                                    onClick={async () => {
+                                      setSavingTaskEdit(true);
+                                      try {
+                                        const dto: UpdateTaskDto = {
+                                          name: editingTaskName.trim(),
+                                          description:
+                                            editingTaskDescription.trim() ||
+                                            null,
+                                          budgetHours: editingTaskBudgetHours
+                                            ? parseFloat(editingTaskBudgetHours)
+                                            : null,
+                                        };
+                                        await api(`/tasks/${t.id}`, {
+                                          method: "PUT",
+                                          body: JSON.stringify(dto),
+                                        });
+                                        setEditingTaskId(null);
+                                        loadTasks();
+                                      } catch {
+                                        addToast(
+                                          "Failed to save task",
+                                          "error",
+                                        );
+                                      } finally {
+                                        setSavingTaskEdit(false);
+                                      }
+                                    }}
+                                    className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 disabled:opacity-50"
+                                  >
+                                    {savingTaskEdit ? "Saving…" : "Save"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingTaskId(null)}
+                                    className="text-xs text-gray-400 hover:text-gray-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingTaskId(t.id);
+                                      setEditingTaskName(t.name);
+                                      setEditingTaskDescription(
+                                        t.description ?? "",
+                                      );
+                                      setEditingTaskBudgetHours(
+                                        t.budgetHours != null
+                                          ? String(Number(t.budgetHours))
+                                          : "",
+                                      );
+                                    }}
+                                    className="text-gray-400 hover:text-emerald-600 transition-colors"
+                                    aria-label="Edit task"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 16 16"
+                                      fill="currentColor"
+                                      className="h-4 w-4"
+                                    >
+                                      <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await api(`/tasks/${t.id}`, {
+                                          method: "DELETE",
+                                        });
+                                        addToast("Task removed");
+                                        loadTasks();
+                                      } catch {
+                                        addToast(
+                                          "Failed to remove task",
+                                          "error",
+                                        );
+                                      }
+                                    }}
+                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                    aria-label="Remove task"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                      className="h-4 w-4"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr
+                              key={`${t.id}-budgets`}
+                              className="border-b border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30"
                             >
-                              <path
-                                fillRule="evenodd"
-                                d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                              <td
+                                colSpan={3}
+                                className="px-8 py-4"
+                              >
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">
+                                  Per-Person Budgets
+                                </p>
+                                {userBudgets.length > 0 && (
+                                  <table className="w-full text-sm mb-3">
+                                    <thead>
+                                      <tr className="border-b border-gray-200 dark:border-gray-600">
+                                        <th className="text-left pb-2 font-medium text-gray-500 dark:text-gray-400">
+                                          Person
+                                        </th>
+                                        <th className="text-right pb-2 font-medium text-gray-500 dark:text-gray-400">
+                                          Budgeted Hours
+                                        </th>
+                                        <th className="pb-2 w-24" />
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {userBudgets.map((ub) => {
+                                        const isEditingBudget =
+                                          editingUserBudgetId === ub.id;
+                                        return (
+                                          <tr
+                                            key={ub.id}
+                                            className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                                          >
+                                            <td className="py-2">
+                                              {ub.user.name}
+                                            </td>
+                                            <td className="py-2 text-right tabular-nums">
+                                              {isEditingBudget ? (
+                                                <input
+                                                  type="number"
+                                                  step="0.5"
+                                                  min="0"
+                                                  autoFocus
+                                                  value={editingUserBudgetHours}
+                                                  onChange={(e) =>
+                                                    setEditingUserBudgetHours(
+                                                      e.target.value,
+                                                    )
+                                                  }
+                                                  onKeyDown={async (e) => {
+                                                    if (e.key === "Escape") {
+                                                      setEditingUserBudgetId(
+                                                        null,
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="w-20 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                />
+                                              ) : (
+                                                <span>
+                                                  {ub.budgetHours != null
+                                                    ? `${Number(ub.budgetHours)}h`
+                                                    : "—"}
+                                                </span>
+                                              )}
+                                            </td>
+                                            <td className="py-2 text-right">
+                                              <div className="flex items-center justify-end gap-3">
+                                                {isEditingBudget ? (
+                                                  <>
+                                                    <button
+                                                      type="button"
+                                                      onClick={async () => {
+                                                        try {
+                                                          await api(
+                                                            `/tasks/user-budgets/${ub.id}`,
+                                                            {
+                                                              method: "PUT",
+                                                              body: JSON.stringify(
+                                                                {
+                                                                  budgetHours:
+                                                                    editingUserBudgetHours
+                                                                      ? parseFloat(
+                                                                          editingUserBudgetHours,
+                                                                        )
+                                                                      : null,
+                                                                },
+                                                              ),
+                                                            },
+                                                          );
+                                                          setEditingUserBudgetId(
+                                                            null,
+                                                          );
+                                                          loadTasks();
+                                                        } catch {
+                                                          addToast(
+                                                            "Failed to save",
+                                                            "error",
+                                                          );
+                                                        }
+                                                      }}
+                                                      className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+                                                    >
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        setEditingUserBudgetId(
+                                                          null,
+                                                        )
+                                                      }
+                                                      className="text-xs text-gray-400 hover:text-gray-600"
+                                                    >
+                                                      Cancel
+                                                    </button>
+                                                  </>
+                                                ) : (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setEditingUserBudgetId(
+                                                        ub.id,
+                                                      );
+                                                      setEditingUserBudgetHours(
+                                                        ub.budgetHours != null
+                                                          ? String(
+                                                              Number(
+                                                                ub.budgetHours,
+                                                              ),
+                                                            )
+                                                          : "",
+                                                      );
+                                                    }}
+                                                    className="text-gray-400 hover:text-emerald-600 transition-colors"
+                                                    aria-label="Edit budget"
+                                                  >
+                                                    <svg
+                                                      xmlns="http://www.w3.org/2000/svg"
+                                                      viewBox="0 0 16 16"
+                                                      fill="currentColor"
+                                                      className="h-3.5 w-3.5"
+                                                    >
+                                                      <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                                                    </svg>
+                                                  </button>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  onClick={async () => {
+                                                    try {
+                                                      await api(
+                                                        `/tasks/user-budgets/${ub.id}`,
+                                                        { method: "DELETE" },
+                                                      );
+                                                      loadTasks();
+                                                    } catch {
+                                                      addToast(
+                                                        "Failed to remove",
+                                                        "error",
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                                  aria-label="Remove"
+                                                >
+                                                  <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 20 20"
+                                                    fill="currentColor"
+                                                    className="h-3.5 w-3.5"
+                                                  >
+                                                    <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                                                  </svg>
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                )}
+                                {addingBudgetForTaskId === t.id ? (
+                                  <form
+                                    onSubmit={async (e) => {
+                                      e.preventDefault();
+                                      setSavingUserBudget(true);
+                                      try {
+                                        const dto: CreateTaskUserBudgetDto = {
+                                          taskId: t.id,
+                                          userId: newBudgetUserId,
+                                          budgetHours: newBudgetHours
+                                            ? parseFloat(newBudgetHours)
+                                            : undefined,
+                                        };
+                                        await api(
+                                          `/tasks/${t.id}/user-budgets`,
+                                          {
+                                            method: "POST",
+                                            body: JSON.stringify(dto),
+                                          },
+                                        );
+                                        setAddingBudgetForTaskId(null);
+                                        setNewBudgetUserId("");
+                                        setNewBudgetHours("");
+                                        loadTasks();
+                                      } catch (err) {
+                                        addToast(
+                                          err instanceof Error
+                                            ? err.message
+                                            : "Failed to add budget",
+                                          "error",
+                                        );
+                                      } finally {
+                                        setSavingUserBudget(false);
+                                      }
+                                    }}
+                                    className="flex items-center gap-3"
+                                  >
+                                    <select
+                                      required
+                                      value={newBudgetUserId}
+                                      onChange={(e) =>
+                                        setNewBudgetUserId(e.target.value)
+                                      }
+                                      className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    >
+                                      <option value="">
+                                        Select person…
+                                      </option>
+                                      {users
+                                        .filter(
+                                          (u) =>
+                                            !userBudgets.some(
+                                              (ub) => ub.userId === u.id,
+                                            ),
+                                        )
+                                        .map((u) => (
+                                          <option key={u.id} value={u.id}>
+                                            {u.name}
+                                          </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                      type="number"
+                                      step="0.5"
+                                      min="0"
+                                      placeholder="Hours"
+                                      value={newBudgetHours}
+                                      onChange={(e) =>
+                                        setNewBudgetHours(e.target.value)
+                                      }
+                                      className="w-24 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                    <button
+                                      type="submit"
+                                      disabled={
+                                        savingUserBudget || !newBudgetUserId
+                                      }
+                                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {savingUserBudget ? "…" : "Add"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAddingBudgetForTaskId(null);
+                                        setNewBudgetUserId("");
+                                        setNewBudgetHours("");
+                                      }}
+                                      className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </form>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAddingBudgetForTaskId(t.id);
+                                      setNewBudgetUserId("");
+                                      setNewBudgetHours("");
+                                    }}
+                                    className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 font-medium"
+                                  >
+                                    + Add person budget
+                                  </button>
+                                )}
+                                {userBudgets.length > 0 && (() => {
+                                  const allocated = userBudgets.reduce(
+                                    (sum, ub) =>
+                                      sum +
+                                      (ub.budgetHours
+                                        ? Number(ub.budgetHours)
+                                        : 0),
+                                    0,
+                                  );
+                                  const total =
+                                    t.budgetHours != null
+                                      ? Number(t.budgetHours)
+                                      : null;
+                                  const over =
+                                    total != null && allocated > total;
+                                  return (
+                                    <p
+                                      className={`mt-2 text-sm tabular-nums ${over ? "text-red-500 dark:text-red-400" : "text-gray-500 dark:text-gray-400"}`}
+                                    >
+                                      {allocated.toFixed(1)}h allocated
+                                      {total != null
+                                        ? ` / ${total.toFixed(1)}h total budget`
+                                        : ""}
+                                    </p>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

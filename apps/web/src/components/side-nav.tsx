@@ -39,8 +39,8 @@ const ADMIN_NAV_ITEMS = [
   { href: "/payroll", label: "Payroll", icon: IdBadgeIcon },
   { href: "/reports", label: "Reports", icon: NetworkIcon },
   { href: "/invoices", label: "Invoices", icon: InvoiceIcon },
-  { href: "/users", label: "Users", icon: GroupIcon },
-  { href: "/admin/integrations", label: "Integrations", icon: NetworkIcon },
+  { href: "/teams", label: "Teams", icon: GroupIcon },
+  { href: "/integrations", label: "Integrations", icon: NetworkIcon },
 ];
 
 export function SideNav({

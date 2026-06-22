@@ -91,20 +91,23 @@ export class TimeEntriesController {
     @Body() dto: CreateTimeEntryDto,
     @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<TimeEntry>> {
+    const effectiveDto: CreateTimeEntryDto = {
+      ...dto,
+      userId: req.user.isAdmin ? dto.userId : req.user.sub,
+    };
+
     if (!req.user.isAdmin) {
       const assigned =
         await this.projectUserRatesService.isUserAssignedToProject(
           req.user.sub,
-          dto.projectId,
+          effectiveDto.projectId,
         );
       if (!assigned) {
         throw new ForbiddenException("You are not assigned to this project");
       }
     }
     return {
-      data: await this.timeEntriesService.create(dto, {
-        allowLocked: req.user.isAdmin,
-      }),
+      data: await this.timeEntriesService.create(effectiveDto),
     };
   }
 
@@ -114,14 +117,28 @@ export class TimeEntriesController {
     @Body() dto: UpdateTimeEntryDto,
     @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<TimeEntry>> {
+    let effectiveDto = dto;
+
     if (!req.user.isAdmin) {
       const entry = await this.timeEntriesService.findById(id);
       if (entry.userId !== req.user.sub) throw new ForbiddenException();
+
+      const projectId = dto.projectId ?? entry.projectId;
+      if (projectId !== entry.projectId) {
+        const assigned =
+          await this.projectUserRatesService.isUserAssignedToProject(
+            req.user.sub,
+            projectId,
+          );
+        if (!assigned) {
+          throw new ForbiddenException("You are not assigned to this project");
+        }
+      }
+
+      effectiveDto = { ...dto, userId: req.user.sub };
     }
     return {
-      data: await this.timeEntriesService.update(id, dto, {
-        allowLocked: req.user.isAdmin,
-      }),
+      data: await this.timeEntriesService.update(id, effectiveDto),
     };
   }
 
@@ -134,8 +151,6 @@ export class TimeEntriesController {
       const entry = await this.timeEntriesService.findById(id);
       if (entry.userId !== req.user.sub) throw new ForbiddenException();
     }
-    await this.timeEntriesService.remove(id, {
-      allowLocked: req.user.isAdmin,
-    });
+    await this.timeEntriesService.remove(id);
   }
 }

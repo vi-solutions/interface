@@ -20,6 +20,20 @@ import type {
 export class TimeEntriesService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
+  private readonly lockedSelect = `
+              EXISTS (
+                SELECT 1 FROM invoices i
+                WHERE i.project_id = t.project_id
+                  AND i.period_start <= t.date
+                  AND i.period_end >= t.date
+                  AND i.status IN ('sent', 'paid')
+              )
+              OR EXISTS (
+                SELECT 1 FROM pay_period_locks ppl
+                WHERE ppl.period_start <= t.date
+                  AND ppl.period_end >= t.date
+              ) AS locked`;
+
   private roundUpToIncrement(hours: number, increment: number): number {
     if (hours <= 0) return 0;
     return Math.ceil((hours - Number.EPSILON) / increment) * increment;
@@ -71,6 +85,7 @@ export class TimeEntriesService {
               t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
+              ${this.lockedSelect},
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               json_build_object('id', p.id, 'name', p.name) AS project,
@@ -98,6 +113,7 @@ export class TimeEntriesService {
               t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
+              ${this.lockedSelect},
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               CASE WHEN tk.id IS NOT NULL THEN json_build_object('id', tk.id, 'name', tk.name) ELSE NULL END AS task
@@ -116,6 +132,18 @@ export class TimeEntriesService {
               task_id AS "taskId",
               date, hours,
               description, billable,
+              EXISTS (
+                SELECT 1 FROM invoices i
+                WHERE i.project_id = time_entries.project_id
+                  AND i.period_start <= time_entries.date
+                  AND i.period_end >= time_entries.date
+                  AND i.status IN ('sent', 'paid')
+              )
+              OR EXISTS (
+                SELECT 1 FROM pay_period_locks ppl
+                WHERE ppl.period_start <= time_entries.date
+                  AND ppl.period_end >= time_entries.date
+              ) AS locked,
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM time_entries WHERE id = $1`,
       [id],
@@ -173,6 +201,7 @@ export class TimeEntriesService {
                  task_id AS "taskId",
                  date, hours,
                  description, billable,
+                 false AS locked,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -213,6 +242,7 @@ export class TimeEntriesService {
                  task_id AS "taskId",
                  date, hours,
                  description, billable,
+                 false AS locked,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -270,6 +300,7 @@ export class TimeEntriesService {
               t.task_id AS "taskId",
               t.date, t.hours,
               t.description, t.billable,
+              ${this.lockedSelect},
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
               json_build_object('id', u.id, 'name', u.name) AS user,
               json_build_object('id', p.id, 'name', p.name) AS project,

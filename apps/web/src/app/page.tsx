@@ -7,22 +7,12 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/app-shell";
 import { Card, CardHeader } from "@/components/ui";
+import { ProjectTable } from "@/components/project-table";
 import { api } from "@/lib/api";
-import type {
-  ApiListResponse,
-  ProjectWithClient,
-  Client,
-  TimeEntryWithDetails,
-  DocumentWithDetails,
-  Task,
-} from "@interface/shared";
+import type { ApiListResponse, ProjectWithClient, Task } from "@interface/shared";
 
 interface DashboardData {
   projects: ProjectWithClient[];
-  clients: Client[];
-  timeEntries: TimeEntryWithDetails[];
-  documents: DocumentWithDetails[];
-  tasks: Task[];
 }
 
 export default function Home() {
@@ -30,6 +20,7 @@ export default function Home() {
   const { user } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -37,56 +28,48 @@ export default function Home() {
       router.push("/projects");
       return;
     }
-    Promise.all([
-      api<ApiListResponse<ProjectWithClient>>("/projects"),
-      api<ApiListResponse<Client>>("/clients"),
-      api<ApiListResponse<TimeEntryWithDetails>>("/time-entries"),
-      api<ApiListResponse<DocumentWithDetails>>("/documents"),
-      api<ApiListResponse<Task>>("/tasks"),
-    ]).then(([projects, clients, time, docs, tasks]) => {
-      setData({
-        projects: projects.data,
-        clients: clients.data,
-        timeEntries: time.data,
-        documents: docs.data,
-        tasks: tasks.data,
-      });
+    api<ApiListResponse<ProjectWithClient>>("/projects").then((projects) => {
+      setData({ projects: projects.data });
     });
+    api<ApiListResponse<Task>>("/tasks").then((res) => setTasks(res.data));
   }, [authenticated]);
 
   if (!authenticated) return null;
 
   const activeProjects =
     data?.projects.filter((p) => p.status === "active") ?? [];
-  const activeProjectIds = new Set(activeProjects.map((p) => p.id));
 
-  // Tasks with a time budget, on active projects only
-  const budgetedTasks = (data?.tasks ?? [])
-    .filter((t) => t.budgetHours != null && activeProjectIds.has(t.projectId))
-    .map((t) => ({ ...t, loggedHours: Number(t.loggedHours) }))
-    .sort((a, b) => {
-      const aUsed = a.budgetHours! > 0 ? a.loggedHours / a.budgetHours! : 0;
-      const bUsed = b.budgetHours! > 0 ? b.loggedHours / b.budgetHours! : 0;
-      return bUsed - aUsed;
-    });
-  const totalHours =
-    data?.timeEntries.reduce((sum, e) => sum + Number(e.hours), 0) ?? 0;
-  const billableHours =
-    data?.timeEntries
-      .filter((e) => e.billable)
-      .reduce((sum, e) => sum + Number(e.hours), 0) ?? 0;
+  const projectById = Object.fromEntries(
+    (data?.projects ?? []).map((p) => [p.id, p]),
+  );
 
-  // This week's hours
-  const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-  weekStart.setHours(0, 0, 0, 0);
-  const weekHours =
-    data?.timeEntries
-      .filter((e) => new Date(e.date) >= weekStart)
-      .reduce((sum, e) => sum + Number(e.hours), 0) ?? 0;
+  // Sum task logged hours per project (tasks cover tagged time entries)
+  const projectLoggedHours: Record<string, number> = {};
+  for (const t of tasks) {
+    projectLoggedHours[t.projectId] =
+      (projectLoggedHours[t.projectId] ?? 0) + Number(t.loggedHours);
+  }
 
-  const recentEntries = data?.timeEntries.slice(0, 5) ?? [];
-  const recentDocs = data?.documents.slice(0, 5) ?? [];
+  // Tasks at ≥ 80% of their hour budget (includes over-budget)
+  const nearingCapTasks = tasks
+    .filter((t) => t.budgetHours != null && Number(t.budgetHours) > 0)
+    .map((t) => ({
+      ...t,
+      pct: Number(t.loggedHours) / Number(t.budgetHours),
+    }))
+    .filter((t) => t.pct >= 0.8)
+    .sort((a, b) => b.pct - a.pct);
+
+  // Active projects with an hours budget that's been exceeded
+  const overBudgetProjects = activeProjects
+    .filter((p) => p.budgetHours != null && Number(p.budgetHours) > 0)
+    .map((p) => ({
+      ...p,
+      logged: projectLoggedHours[p.id] ?? 0,
+      budget: Number(p.budgetHours),
+    }))
+    .filter((p) => p.logged > p.budget)
+    .sort((a, b) => b.logged / b.budget - a.logged / a.budget);
 
   // Greeting based on time of day
   const hour = new Date().getHours();
@@ -105,134 +88,112 @@ export default function Home() {
             Here&apos;s what&apos;s happening with your projects.
           </p>
         </div>
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Projects</h2>
+            <Link
+              href="/projects"
+              className="text-xs text-[#BA7A61] hover:underline mr-2"
+            >
+              View all
+            </Link>
+          </div>
+          <Card padding={false} className="overflow-hidden">
+            <div className="p-2">
+              <ProjectTable
+                projects={activeProjects}
+                emptyMessage="No active projects yet."
+                framed={false}
+                maxRows={10}
+              />
+            </div>
+          </Card>
+        </div>
 
-        {/* Task Time Budgets */}
-        {budgetedTasks.length > 0 && (
-          <Card className="mb-8">
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
-              Task Budgets
-            </h2>
-            <div className="space-y-6">
-              {Object.entries(
-                budgetedTasks.reduce<Record<string, typeof budgetedTasks>>(
-                  (acc, task) => {
-                    (acc[task.projectId] ??= []).push(task);
-                    return acc;
-                  },
-                  {},
-                ),
-              ).map(([projectId, tasks]) => {
-                const project = data?.projects.find((p) => p.id === projectId);
+        {/* Projects Over Budget */}
+        {overBudgetProjects.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-3">Projects Over Budget</h2>
+            <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 overflow-hidden">
+              {overBudgetProjects.map((p, i) => {
+                const pct = Math.min(p.logged / p.budget, 2);
                 return (
-                  <div key={projectId}>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                      {project?.name ?? "Unknown Project"}
-                    </p>
-                    <div className="space-y-3">
-                      {tasks.map((task) => {
-                        const pct = task.budgetHours!
-                          ? Math.min(
-                              (task.loggedHours / task.budgetHours!) * 100,
-                              100,
-                            )
-                          : 0;
-                        const over = task.loggedHours > task.budgetHours!;
-                        return (
-                          <div key={task.id}>
-                            <div className="flex items-center justify-between text-sm mb-1">
-                              <span className="font-medium truncate">
-                                {task.name}
-                              </span>
-                              <span
-                                className={`tabular-nums ml-4 shrink-0 text-xs ${
-                                  over
-                                    ? "text-red-500 dark:text-red-400 font-medium"
-                                    : "text-gray-500 dark:text-gray-400"
-                                }`}
-                              >
-                                {task.loggedHours.toFixed(1)}h /{" "}
-                                {task.budgetHours}h
-                              </span>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500`}
-                                style={{
-                                  width: `${pct}%`,
-                                  backgroundColor: over
-                                    ? "#ef4444"
-                                    : pct >= 80
-                                      ? "#BA7A61"
-                                      : "#696D3D",
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
+                  <div
+                    key={p.id}
+                    className={`px-4 py-3 flex items-center gap-4 ${i < overBudgetProjects.length - 1 ? "border-b border-gray-100 dark:border-gray-700/50" : ""}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/projects/${p.id}`}
+                        className="text-sm font-medium hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
+                      >
+                        {p.name}
+                      </Link>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {p.client.name}
+                      </p>
                     </div>
+                    <div className="w-32 shrink-0">
+                      <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-red-500"
+                          style={{ width: `${Math.min(pct * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm tabular-nums text-red-600 dark:text-red-400 font-medium shrink-0">
+                      {p.logged.toFixed(1)}h / {p.budget.toFixed(1)}h
+                    </p>
                   </div>
                 );
               })}
             </div>
-          </Card>
+          </div>
         )}
 
-        <div className="grid grid-cols-1 gap-8 mb-8">
-          {/* Active Projects */}
-          <Card padding={false} className="overflow-hidden">
-            <CardHeader
-              title="Active Projects"
-              action={
-                <Link
-                  href="/projects"
-                  className="text-xs text-[#BA7A61] hover:underline"
-                >
-                  View all
-                </Link>
-              }
-            />
-            {activeProjects.length === 0 ? (
-              <p className="px-5 py-8 text-center text-gray-400 text-sm">
-                No active projects yet.
-              </p>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {activeProjects.slice(0, 6).map((project) => (
-                  <Link
-                    key={project.id}
-                    href={`/projects/${project.id}`}
-                    className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+        {/* Tasks Nearing Budget */}
+        {nearingCapTasks.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-3">Tasks Nearing Budget</h2>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+              {nearingCapTasks.map((t, i) => {
+                const over = t.pct > 1;
+                const project = projectById[t.projectId];
+                return (
+                  <div
+                    key={t.id}
+                    className={`px-4 py-3 flex items-center gap-4 ${i < nearingCapTasks.length - 1 ? "border-b border-gray-100 dark:border-gray-700/50" : ""}`}
                   >
-                    <div
-                      className={`h-9 w-9 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${phaseColor(project.phase)}`}
-                    >
-                      {project.name.slice(0, 2).toUpperCase()}
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/projects/${t.projectId}`}
+                        className="text-sm font-medium hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
+                      >
+                        {t.name}
+                      </Link>
+                      {project && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {project.name}
+                        </p>
+                      )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {project.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {project.client.name}
-                        {project.phase && (
-                          <span className="ml-2 capitalize">
-                            · {project.phase}
-                          </span>
-                        )}
-                      </p>
+                    <div className="w-32 shrink-0">
+                      <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${over ? "bg-red-500" : "bg-amber-400"}`}
+                          style={{ width: `${Math.min(t.pct * 100, 100)}%` }}
+                        />
+                      </div>
                     </div>
-                    {project.endDate && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums shrink-0">
-                        Due {new Date(project.endDate).toLocaleDateString()}
-                      </span>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
+                    <p className={`text-sm tabular-nums font-medium shrink-0 ${over ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                      {Number(t.loggedHours).toFixed(1)}h / {Number(t.budgetHours).toFixed(1)}h
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -247,45 +208,6 @@ export default function Home() {
         </div>
       </div>
     </AppShell>
-  );
-}
-
-/* ---------- Sub-components ---------- */
-
-function StatCard({
-  label,
-  value,
-  sub,
-  icon,
-  color,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  icon: React.ReactNode;
-  color: "sage" | "dusk" | "mauve";
-}) {
-  const colors = {
-    sage: "bg-[#F0F2E8] text-[#4F572C]",
-    dusk: "bg-[#FAD9C6] text-[#BA7A61]",
-    mauve: "bg-[#ECEAF0] text-[#625D78]",
-  };
-
-  return (
-    <Card className="!p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          {label}
-        </span>
-        <div
-          className={`h-8 w-8 rounded-lg flex items-center justify-center ${colors[color]}`}
-        >
-          {icon}
-        </div>
-      </div>
-      <p className="text-2xl font-bold tabular-nums">{value}</p>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{sub}</p>
-    </Card>
   );
 }
 
@@ -310,97 +232,5 @@ function QuickAction({
         {label}
       </span>
     </Link>
-  );
-}
-
-function phaseColor(phase: string | null): string {
-  switch (phase) {
-    case "assessment":
-      return "bg-[#625D78]";
-    case "analysis":
-      return "bg-[#BA7A61]";
-    case "restoration":
-      return "bg-[#696D3D]";
-    case "permitting":
-      return "bg-[#4F572C]";
-    case "reporting":
-      return "bg-[#DDA991]";
-    default:
-      return "bg-[#9ca3af]";
-  }
-}
-
-/* ---------- Icons ---------- */
-
-function FolderIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className="h-4 w-4"
-    >
-      <path d="M3.75 3A1.75 1.75 0 0 0 2 4.75v3.26a3.235 3.235 0 0 1 1.75-.51h12.5c.644 0 1.245.188 1.75.51V6.75A1.75 1.75 0 0 0 16.25 5h-4.836a.25.25 0 0 1-.177-.073L9.823 3.513A1.75 1.75 0 0 0 8.586 3H3.75ZM3.75 9A1.75 1.75 0 0 0 2 10.75v4.5c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 18 15.25v-4.5A1.75 1.75 0 0 0 16.25 9H3.75Z" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className="h-4 w-4"
-    >
-      <path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className="h-4 w-4"
-    >
-      <path
-        fillRule="evenodd"
-        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function CurrencyIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className="h-4 w-4"
-    >
-      <path
-        fillRule="evenodd"
-        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.798 7.45c.512-.67 1.135-.95 1.702-.95s1.19.28 1.702.95a.75.75 0 0 0 1.196-.91C12.637 5.55 11.5 5 10.5 5s-2.137.55-2.898 1.54A4.25 4.25 0 0 0 6.75 9.25c0 1.152.26 2.108.852 2.71.761.99 1.898 1.54 2.898 1.54s2.137-.55 2.898-1.54a.75.75 0 0 0-1.196-.91c-.512.67-1.135.95-1.702.95s-1.19-.28-1.702-.95A2.75 2.75 0 0 1 8.25 9.25c0-.752.187-1.42.548-1.8Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function DocIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      className={className}
-    >
-      <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13Z" />
-    </svg>
   );
 }

@@ -44,7 +44,9 @@ export default function EditUserPage() {
     api<ApiResponse<User>>(`/users/${id}`)
       .then((res) => setUser(res.data))
       .catch((e) =>
-        setError(e instanceof Error ? e.message : "Failed to load user"),
+        setError(
+          e instanceof Error ? e.message : "Failed to load team member",
+        ),
       );
   }, [authenticated, id, currentUser, router]);
 
@@ -83,10 +85,12 @@ export default function EditUserPage() {
           body: JSON.stringify({ newPassword }),
         });
       }
-      addToast("User updated");
-      router.push("/users");
+      addToast("Team member updated");
+      router.push("/teams");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update user");
+      setError(
+        err instanceof Error ? err.message : "Failed to update team member",
+      );
     } finally {
       setSaving(false);
     }
@@ -97,14 +101,14 @@ export default function EditUserPage() {
       <div className="max-w-2xl mx-auto p-8">
         <div className="mb-6">
           <Link
-            href="/users"
+            href="/teams"
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
-            ← Back to Users
+            ← Back to Teams
           </Link>
         </div>
 
-        <PageHeader title="Edit User" />
+        <PageHeader title="Edit Team Member" />
 
         {error && <ErrorAlert message={error} />}
 
@@ -211,7 +215,7 @@ export default function EditUserPage() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => router.push("/users")}
+                onClick={() => router.push("/teams")}
               >
                 Cancel
               </Button>

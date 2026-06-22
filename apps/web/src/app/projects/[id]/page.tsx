@@ -18,6 +18,7 @@ import type {
   Milestone,
   ProjectContactWithDetails,
   Task,
+  TaskUserBudgetWithUser,
   ProjectUserRateWithUser,
   User,
   ProjectNoteWithAuthor,
@@ -29,12 +30,37 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 
+function formatCalendarDate(iso: string) {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
+function localDateFromIso(iso: string) {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function weekStartKey(iso: string) {
+  const date = localDateFromIso(iso);
+  const day = date.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + mondayOffset);
+  return date.toLocaleDateString("en-CA");
+}
+
+function formatWeekLabel(iso: string) {
+  return formatCalendarDate(iso);
+}
+
 export default function ProjectDetailPage() {
   const { authenticated } = useRequireAuth();
   const { user: currentUser } = useAuth();
   const { addToast } = useToast();
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<ProjectWithClient | null>(null);
+  const [availableProjects, setAvailableProjects] = useState<
+    ProjectWithClient[]
+  >([]);
   const [entries, setEntries] = useState<TimeEntryWithUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +85,10 @@ export default function ProjectDetailPage() {
     ProjectContactWithDetails[]
   >([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskUserBudgets, setTaskUserBudgets] = useState<
+    Record<string, TaskUserBudgetWithUser[]>
+  >({});
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [projectUserRates, setProjectUserRates] = useState<
     ProjectUserRateWithUser[]
   >([]);
@@ -69,6 +99,8 @@ export default function ProjectDetailPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState("");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [movingEntryId, setMovingEntryId] = useState<string | null>(null);
+  const [moveProjectId, setMoveProjectId] = useState("");
   const [editEntryForm, setEditEntryForm] = useState<{
     userId: string;
     taskId: string;
@@ -126,7 +158,24 @@ export default function ProjectDetailPage() {
 
   const loadTimeCategories = useCallback(() => {
     api<ApiListResponse<Task>>(`/tasks?projectId=${id}`)
-      .then((res) => setTasks(res.data))
+      .then(async (res) => {
+        setTasks(res.data);
+        const results = await Promise.all(
+          res.data.map((t) =>
+            api<ApiListResponse<TaskUserBudgetWithUser>>(
+              `/tasks/${t.id}/user-budgets`,
+            )
+              .then((r) => ({ taskId: t.id, budgets: r.data }))
+              .catch(() => ({
+                taskId: t.id,
+                budgets: [] as TaskUserBudgetWithUser[],
+              })),
+          ),
+        );
+        const map: Record<string, TaskUserBudgetWithUser[]> = {};
+        for (const r of results) map[r.taskId] = r.budgets;
+        setTaskUserBudgets(map);
+      })
       .catch(() => {});
   }, [id]);
 
@@ -181,6 +230,16 @@ export default function ProjectDetailPage() {
     loadNotes,
   ]);
 
+  useEffect(() => {
+    if (!authenticated || !currentUser) return;
+    const projectsUrl = currentUser.isAdmin
+      ? "/projects"
+      : `/projects?userId=${currentUser.id}`;
+    api<ApiListResponse<ProjectWithClient>>(projectsUrl)
+      .then((res) => setAvailableProjects(res.data))
+      .catch(() => {});
+  }, [authenticated, currentUser]);
+
   if (!authenticated) return null;
 
   // Group entries by user for the summary
@@ -213,6 +272,60 @@ export default function ProjectDetailPage() {
     acc[key].hours += Number(entry.hours);
     return acc;
   }, {});
+
+  // Per-user logged hours per task
+  const byTaskUser = entries.reduce<Record<string, Record<string, number>>>(
+    (acc, entry) => {
+      const taskKey = entry.task?.id ?? "_none";
+      if (!acc[taskKey]) acc[taskKey] = {};
+      acc[taskKey][entry.userId] =
+        (acc[taskKey][entry.userId] ?? 0) + Number(entry.hours);
+      return acc;
+    },
+    {},
+  );
+
+  const taskBudget = tasks.reduce(
+    (acc, task) => {
+      if (task.budgetHours == null || Number(task.budgetHours) <= 0) {
+        return acc;
+      }
+      acc.used += byTask[task.id]?.hours ?? 0;
+      acc.total += Number(task.budgetHours);
+      return acc;
+    },
+    { used: 0, total: 0 },
+  );
+  const taskBudgetPct =
+    taskBudget.total > 0 ? (taskBudget.used / taskBudget.total) * 100 : null;
+  const weeklyHours = Array.from(
+    entries
+      .reduce<
+        Map<
+          string,
+          { weekStart: string; billable: number; nonBillable: number }
+        >
+      >((acc, entry) => {
+        const key = weekStartKey(entry.date);
+        const week = acc.get(key) ?? {
+          weekStart: key,
+          billable: 0,
+          nonBillable: 0,
+        };
+        if (entry.billable) {
+          week.billable += Number(entry.hours);
+        } else {
+          week.nonBillable += Number(entry.hours);
+        }
+        acc.set(key, week);
+        return acc;
+      }, new Map())
+      .values(),
+  ).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+  const maxWeeklyHours = Math.max(
+    0,
+    ...weeklyHours.map((week) => week.billable + week.nonBillable),
+  );
 
   // Build a rate lookup: userId -> hourly charge-out rate in cents
   const rateByUser: Record<string, number> = {};
@@ -314,6 +427,8 @@ export default function ProjectDetailPage() {
   }
 
   function startEditEntry(entry: TimeEntryWithUser) {
+    setMovingEntryId(null);
+    setMoveProjectId("");
     setEditingEntryId(entry.id);
     setEditEntryForm({
       userId: entry.userId,
@@ -323,6 +438,13 @@ export default function ProjectDetailPage() {
       description: entry.description ?? "",
       billable: entry.billable,
     });
+  }
+
+  function startMoveEntry(entry: TimeEntryWithUser) {
+    setEditingEntryId(null);
+    setEditEntryForm(null);
+    setMovingEntryId(entry.id);
+    setMoveProjectId("");
   }
 
   async function handleEditEntrySave() {
@@ -349,6 +471,32 @@ export default function ProjectDetailPage() {
     } catch (err) {
       addToast(
         err instanceof Error ? err.message : "Failed to update entry",
+        "error",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleMoveEntrySave() {
+    if (!movingEntryId || !moveProjectId || moveProjectId === id) return;
+    setSaving(true);
+    const dto: UpdateTimeEntryDto = {
+      projectId: moveProjectId,
+      taskId: null,
+    };
+    try {
+      await api<ApiResponse<TimeEntryWithUser>>(
+        `/time-entries/${movingEntryId}`,
+        { method: "PUT", body: JSON.stringify(dto) },
+      );
+      addToast("Time entry moved");
+      setMovingEntryId(null);
+      setMoveProjectId("");
+      loadEntries();
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to move entry",
         "error",
       );
     } finally {
@@ -502,7 +650,7 @@ export default function ProjectDetailPage() {
                     Start Date
                   </h3>
                   <p className="mt-1">
-                    {new Date(project.startDate).toLocaleDateString()}
+                    {formatCalendarDate(project.startDate)}
                   </p>
                 </div>
               )}
@@ -512,7 +660,7 @@ export default function ProjectDetailPage() {
                     End Date
                   </h3>
                   <p className="mt-1">
-                    {new Date(project.endDate).toLocaleDateString()}
+                    {formatCalendarDate(project.endDate)}
                   </p>
                 </div>
               )}
@@ -572,7 +720,7 @@ export default function ProjectDetailPage() {
             {entries.length > 0 && (
               <div className="mb-10 space-y-6">
                 {/* Financial summary cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {currentUser?.isAdmin && (
                     <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -642,7 +790,127 @@ export default function ProjectDetailPage() {
                       )}
                     </div>
                   )}
+                  {currentUser?.isAdmin && taskBudgetPct != null && (
+                    <div
+                      className={`rounded-lg border p-4 ${
+                        taskBudgetPct < 90
+                          ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+                          : taskBudgetPct < 100
+                            ? "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20"
+                            : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                      }`}
+                    >
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Task Budget
+                      </p>
+                      <p
+                        className={`mt-1 text-xl font-bold tabular-nums ${
+                          taskBudgetPct >= 100
+                            ? "text-red-700 dark:text-red-300"
+                            : "text-gray-900 dark:text-gray-100"
+                        }`}
+                      >
+                        {taskBudget.used.toFixed(1)} /{" "}
+                        {taskBudget.total.toFixed(1)}h
+                      </p>
+                      <div className="mt-2">
+                        <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                          <div
+                            className={`h-1.5 rounded-full ${
+                              taskBudgetPct >= 90
+                                ? "bg-red-500"
+                                : taskBudgetPct >= 70
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(100, taskBudgetPct)}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {taskBudgetPct.toFixed(0)}% used
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {weeklyHours.length > 0 && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Hours by Week
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          Billable vs. non-billable logged hours
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                          Billable
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                          Non-billable
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <div className="flex min-w-max items-end gap-3 pr-2">
+                        {weeklyHours.map((week) => {
+                          const total = week.billable + week.nonBillable;
+                          const barHeight =
+                            maxWeeklyHours > 0
+                              ? Math.max(8, (total / maxWeeklyHours) * 128)
+                              : 0;
+                          const billablePct =
+                            total > 0 ? (week.billable / total) * 100 : 0;
+                          const nonBillablePct = 100 - billablePct;
+
+                          return (
+                            <div
+                              key={week.weekStart}
+                              className="flex w-20 shrink-0 flex-col items-center gap-2"
+                            >
+                              <div className="flex h-32 items-end">
+                                <div
+                                  className="flex w-9 flex-col-reverse overflow-hidden rounded-t-md bg-gray-100 dark:bg-gray-700"
+                                  style={{ height: `${barHeight}px` }}
+                                  title={`${total.toFixed(1)}h total`}
+                                >
+                                  {week.billable > 0 && (
+                                    <div
+                                      className="bg-emerald-600"
+                                      style={{ height: `${billablePct}%` }}
+                                    />
+                                  )}
+                                  {week.nonBillable > 0 && (
+                                    <div
+                                      className="bg-gray-300 dark:bg-gray-600"
+                                      style={{ height: `${nonBillablePct}%` }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs font-medium tabular-nums text-gray-700 dark:text-gray-300">
+                                  {total.toFixed(1)}h
+                                </p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                  {formatWeekLabel(week.weekStart)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Admin: dollar budget row */}
                 {currentUser?.isAdmin && project.budgetCents != null && (
@@ -1818,28 +2086,158 @@ export default function ProjectDetailPage() {
                           t.budgetHours != null ? Number(t.budgetHours) : null;
                         const remaining =
                           budget != null ? budget - logged : null;
+                        const isExpanded = expandedTaskId === t.id;
+                        const userBudgets = taskUserBudgets[t.id] ?? [];
+                        const taskUserHours = byTaskUser[t.id] ?? {};
+                        const hasPerPersonData =
+                          userBudgets.length > 0 ||
+                          Object.keys(taskUserHours).length > 0;
                         return (
-                          <tr
-                            key={t.id}
-                            className="border-b border-gray-100 dark:border-gray-700/50"
-                          >
-                            <td className="px-4 py-2.5">{t.name}</td>
-                            <td className="px-4 py-2.5 text-right tabular-nums">
-                              {logged.toFixed(2)}
-                            </td>
-                            <td className="px-4 py-2.5 text-right tabular-nums">
-                              {budget != null ? budget.toFixed(2) : "—"}
-                            </td>
-                            <td
-                              className={`px-4 py-2.5 text-right tabular-nums font-medium ${
-                                remaining != null && remaining < 0
-                                  ? "text-red-600 dark:text-red-400"
-                                  : ""
-                              }`}
+                          <>
+                            <tr
+                              key={t.id}
+                              className="border-b border-gray-100 dark:border-gray-700/50"
                             >
-                              {remaining != null ? remaining.toFixed(2) : "—"}
-                            </td>
-                          </tr>
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  {hasPerPersonData && (
+                                    <button
+                                      onClick={() =>
+                                        setExpandedTaskId(
+                                          isExpanded ? null : t.id,
+                                        )
+                                      }
+                                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                                      aria-label={
+                                        isExpanded ? "Collapse" : "Expand"
+                                      }
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                        className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    </button>
+                                  )}
+                                  {!hasPerPersonData && (
+                                    <span className="w-4 inline-block" />
+                                  )}
+                                  {t.name}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums">
+                                {logged.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums">
+                                {budget != null ? budget.toFixed(2) : "—"}
+                              </td>
+                              <td
+                                className={`px-4 py-2.5 text-right tabular-nums font-medium ${
+                                  remaining != null && remaining < 0
+                                    ? "text-red-600 dark:text-red-400"
+                                    : ""
+                                }`}
+                              >
+                                {remaining != null ? remaining.toFixed(2) : "—"}
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr
+                                key={`${t.id}-detail`}
+                                className="border-b border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30"
+                              >
+                                <td colSpan={4} className="px-8 py-3">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-gray-200 dark:border-gray-600">
+                                        <th className="text-left pb-2 font-medium text-gray-400 dark:text-gray-500">
+                                          Person
+                                        </th>
+                                        <th className="text-right pb-2 font-medium text-gray-400 dark:text-gray-500">
+                                          Logged
+                                        </th>
+                                        <th className="text-right pb-2 font-medium text-gray-400 dark:text-gray-500">
+                                          Budget
+                                        </th>
+                                        <th className="text-right pb-2 font-medium text-gray-400 dark:text-gray-500">
+                                          Remaining
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(() => {
+                                        const allUserIds = Array.from(
+                                          new Set([
+                                            ...Object.keys(taskUserHours),
+                                            ...userBudgets.map(
+                                              (ub) => ub.userId,
+                                            ),
+                                          ]),
+                                        );
+                                        return allUserIds.map((uid) => {
+                                          const ub = userBudgets.find(
+                                            (b) => b.userId === uid,
+                                          );
+                                          const userLogged =
+                                            taskUserHours[uid] ?? 0;
+                                          const userBudgetHours =
+                                            ub?.budgetHours != null
+                                              ? Number(ub.budgetHours)
+                                              : null;
+                                          const userRemaining =
+                                            userBudgetHours != null
+                                              ? userBudgetHours - userLogged
+                                              : null;
+                                          const userName =
+                                            ub?.user.name ??
+                                            users.find((u) => u.id === uid)
+                                              ?.name ??
+                                            "Unknown";
+                                          return (
+                                            <tr
+                                              key={uid}
+                                              className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+                                            >
+                                              <td className="py-1.5 text-gray-600 dark:text-gray-300">
+                                                {userName}
+                                              </td>
+                                              <td className="py-1.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                                                {userLogged.toFixed(2)}
+                                              </td>
+                                              <td className="py-1.5 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                                                {userBudgetHours != null
+                                                  ? userBudgetHours.toFixed(2)
+                                                  : "—"}
+                                              </td>
+                                              <td
+                                                className={`py-1.5 text-right tabular-nums font-medium ${
+                                                  userRemaining != null &&
+                                                  userRemaining < 0
+                                                    ? "text-red-600 dark:text-red-400"
+                                                    : "text-gray-600 dark:text-gray-300"
+                                                }`}
+                                              >
+                                                {userRemaining != null
+                                                  ? userRemaining.toFixed(2)
+                                                  : "—"}
+                                              </td>
+                                            </tr>
+                                          );
+                                        });
+                                      })()}
+                                    </tbody>
+                                  </table>
+                                </td>
+                              </tr>
+                            )}
+                          </>
                         );
                       })}
                       {byTask["_none"] && (
@@ -1902,8 +2300,17 @@ export default function ProjectDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {visibleEntries.map((entry) =>
-                          editingEntryId === entry.id && editEntryForm ? (
+                        {visibleEntries.map((entry) => {
+                          const canManageEntry =
+                            (currentUser?.isAdmin ||
+                              entry.userId === currentUser?.id) &&
+                            !entry.locked;
+                          const moveProjects = availableProjects.filter(
+                            (p) => p.id !== entry.projectId,
+                          );
+
+                          return editingEntryId === entry.id &&
+                            editEntryForm ? (
                             <tr
                               key={entry.id}
                               className="border-b border-gray-100 dark:border-gray-700/50 last:border-0 bg-emerald-50/40 dark:bg-emerald-900/10"
@@ -2030,7 +2437,7 @@ export default function ProjectDetailPage() {
                               className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                             >
                               <td className="px-4 py-2.5 whitespace-nowrap">
-                                {new Date(entry.date).toLocaleDateString()}
+                                {formatCalendarDate(entry.date)}
                               </td>
                               <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
                                 {entry.task?.name || "—"}
@@ -2051,46 +2458,108 @@ export default function ProjectDetailPage() {
                               </td>
                               <td className="px-4 py-2.5 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  {(currentUser?.isAdmin ||
-                                    entry.userId === currentUser?.id) && (
-                                    <button
-                                      onClick={() => startEditEntry(entry)}
-                                      className="text-gray-400 hover:text-emerald-600 transition-colors"
-                                      aria-label="Edit entry"
-                                    >
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                        className="h-4 w-4"
+                                  {movingEntryId === entry.id ? (
+                                    <>
+                                      <select
+                                        value={moveProjectId}
+                                        onChange={(e) =>
+                                          setMoveProjectId(e.target.value)
+                                        }
+                                        className="max-w-48 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                       >
-                                        <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z" />
-                                      </svg>
-                                    </button>
+                                        <option value="">Move to...</option>
+                                        {moveProjects.map((p) => (
+                                          <option key={p.id} value={p.id}>
+                                            {p.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        onClick={handleMoveEntrySave}
+                                        disabled={saving || !moveProjectId}
+                                        className="text-xs rounded bg-emerald-600 text-white px-2.5 py-1 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setMovingEntryId(null);
+                                          setMoveProjectId("");
+                                        }}
+                                        className="text-xs rounded border border-gray-300 dark:border-gray-600 px-2.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  ) : entry.locked ? (
+                                    <span className="rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                      Locked
+                                    </span>
+                                  ) : (
+                                    <>
+                                      {canManageEntry && (
+                                        <button
+                                          onClick={() => startEditEntry(entry)}
+                                          className="text-gray-400 hover:text-emerald-600 transition-colors"
+                                          aria-label="Edit entry"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            className="h-4 w-4"
+                                          >
+                                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                      {canManageEntry && (
+                                        <button
+                                          onClick={() => handleDelete(entry.id)}
+                                          className="text-gray-400 hover:text-red-500 transition-colors"
+                                          aria-label="Delete entry"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            className="h-4 w-4"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                        </button>
+                                      )}
+                                      {canManageEntry && (
+                                        <button
+                                          onClick={() => startMoveEntry(entry)}
+                                          className="text-gray-400 hover:text-emerald-600 transition-colors"
+                                          aria-label="Move entry"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            className="h-4 w-4"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M3 10a.75.75 0 0 1 .75-.75h10.69l-3.22-3.22a.75.75 0 1 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H3.75A.75.75 0 0 1 3 10Z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </>
                                   )}
-                                  <button
-                                    onClick={() => handleDelete(entry.id)}
-                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                    aria-label="Delete entry"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      viewBox="0 0 20 20"
-                                      fill="currentColor"
-                                      className="h-4 w-4"
-                                    >
-                                      <path
-                                        fillRule="evenodd"
-                                        d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                                        clipRule="evenodd"
-                                      />
-                                    </svg>
-                                  </button>
                                 </div>
                               </td>
                             </tr>
-                          ),
-                        )}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

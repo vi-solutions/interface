@@ -49,14 +49,15 @@ export default function UsersPage() {
   if (!authenticated || !currentUser?.isAdmin) return null;
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete team member "${name}"? This cannot be undone.`))
+      return;
     try {
       await api(`/users/${id}`, { method: "DELETE" });
-      addToast("User deleted");
+      addToast("Team member deleted");
       loadUsers();
     } catch (err) {
       addToast(
-        err instanceof Error ? err.message : "Failed to delete user",
+        err instanceof Error ? err.message : "Failed to delete team member",
         "error",
       );
     }
@@ -86,13 +87,13 @@ export default function UsersPage() {
         method: "POST",
         body: JSON.stringify(dto),
       });
-      addToast("User created");
+      addToast("Team member created");
       setShowNew(false);
       loadUsers();
       (e.target as HTMLFormElement).reset();
     } catch (err) {
       addToast(
-        err instanceof Error ? err.message : "Failed to create user",
+        err instanceof Error ? err.message : "Failed to create team member",
         "error",
       );
     } finally {
@@ -104,22 +105,22 @@ export default function UsersPage() {
     <AppShell>
       <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6">
         <PageHeader
-          title="Users"
+          title="Teams"
           subtitle="Manage team members and their access."
         >
           <Button onClick={() => setShowNew((v) => !v)}>
-            {showNew ? "Cancel" : "+ New User"}
+            {showNew ? "Cancel" : "+ New Team Member"}
           </Button>
         </PageHeader>
 
-        {/* New User Form */}
+        {/* New Team Member Form */}
         {showNew && (
           <form
             onSubmit={handleCreate}
             className="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6"
           >
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-              New User
+              New Team Member
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -210,7 +211,7 @@ export default function UsersPage() {
             </div>
             <div className="mt-4 flex gap-3">
               <Button type="submit" disabled={saving}>
-                {saving ? "Creating…" : "Create User"}
+                {saving ? "Creating…" : "Create Team Member"}
               </Button>
               <Button
                 type="button"
@@ -223,7 +224,7 @@ export default function UsersPage() {
           </form>
         )}
 
-        {/* Users Table */}
+        {/* Teams Table */}
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -293,7 +294,7 @@ export default function UsersPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => router.push(`/users/${u.id}`)}
+                          onClick={() => router.push(`/teams/${u.id}`)}
                           className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           Edit
@@ -316,7 +317,7 @@ export default function UsersPage() {
 
           {users.length === 0 && (
             <div className="px-4 py-12 text-center text-sm text-gray-400">
-              No users yet.
+              No team members yet.
             </div>
           )}
         </div>
