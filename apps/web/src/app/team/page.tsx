@@ -105,7 +105,7 @@ export default function UsersPage() {
     <AppShell>
       <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6">
         <PageHeader
-          title="Teams"
+          title="Team"
           subtitle="Manage team members and their access."
         >
           <Button onClick={() => setShowNew((v) => !v)}>
@@ -224,7 +224,7 @@ export default function UsersPage() {
           </form>
         )}
 
-        {/* Teams Table */}
+        {/* Team Table */}
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -294,7 +294,7 @@ export default function UsersPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => router.push(`/teams/${u.id}`)}
+                          onClick={() => router.push(`/team/${u.id}`)}
                           className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           Edit

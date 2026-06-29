@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { dateToDateInputValue, todayDateInputValue } from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import type {
@@ -11,14 +12,14 @@ import type {
 } from "@interface/shared";
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDateInputValue();
 }
 
 function weekStart() {
   const d = new Date();
   const day = d.getDay(); // 0=Sun
   d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
+  return dateToDateInputValue(d);
 }
 
 function monthStart() {

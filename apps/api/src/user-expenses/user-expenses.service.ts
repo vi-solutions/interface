@@ -9,8 +9,10 @@ import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
 import { QboSyncService } from "../quickbooks/qbo-sync.service";
 import type {
+  ExpenseType,
   UserExpense,
   UserExpenseWithDetails,
+  UserExpenseReportEntry,
   CreateUserExpenseDto,
   UpdateUserExpenseDto,
 } from "@interface/shared";
@@ -62,6 +64,64 @@ export class UserExpensesService {
        WHERE ue.user_id = $1
        ORDER BY ue.date DESC, ue.created_at DESC`,
       [userId],
+    );
+    return rows;
+  }
+
+  async findReport(opts: {
+    startDate: string;
+    endDate: string;
+    userId?: string;
+    clientId?: string;
+    projectId?: string;
+    expenseType?: ExpenseType;
+    projectExpenseId?: string;
+  }): Promise<UserExpenseReportEntry[]> {
+    const params: unknown[] = [opts.startDate, opts.endDate];
+    const conditions: string[] = ["ue.date >= $1", "ue.date <= $2"];
+
+    if (opts.userId) {
+      params.push(opts.userId);
+      conditions.push(`ue.user_id = $${params.length}`);
+    }
+    if (opts.clientId) {
+      params.push(opts.clientId);
+      conditions.push(`c.id = $${params.length}`);
+    }
+    if (opts.projectId) {
+      params.push(opts.projectId);
+      conditions.push(`ue.project_id = $${params.length}`);
+    }
+    if (opts.expenseType) {
+      params.push(opts.expenseType);
+      conditions.push(`COALESCE(pe.type, e.type) = $${params.length}`);
+    }
+    if (opts.projectExpenseId) {
+      params.push(opts.projectExpenseId);
+      conditions.push(`ue.project_expense_id = $${params.length}`);
+    }
+
+    const { rows } = await this.pool.query(
+      `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
+              ue.project_expense_id AS "projectExpenseId",
+              ue.date, ue.quantity, ue.total_cents AS "totalCents",
+              ue.notes, ue.receipt_url AS "receiptUrl",
+              ue.qbo_expense_id AS "qboExpenseId",
+              ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
+              json_build_object('id', u.id, 'name', u.name) AS user,
+              json_build_object('id', p.id, 'name', p.name) AS project,
+              json_build_object('id', c.id, 'name', c.name) AS client,
+              COALESCE(pe.name, e.name) AS "expenseName",
+              COALESCE(pe.type, e.type) AS "expenseType"
+       FROM user_expenses ue
+       JOIN users u ON u.id = ue.user_id
+       JOIN projects p ON p.id = ue.project_id
+       JOIN clients c ON c.id = p.client_id
+       JOIN project_expenses pe ON pe.id = ue.project_expense_id
+       LEFT JOIN expenses e ON e.id = pe.expense_id
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY ue.date DESC, c.name ASC, p.name ASC, ue.created_at DESC`,
+      params,
     );
     return rows;
   }

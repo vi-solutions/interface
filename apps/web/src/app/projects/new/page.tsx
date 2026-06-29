@@ -122,7 +122,11 @@ export default function NewProjectPage() {
           </FormField>
 
           <FormField label="Project Code" htmlFor="code">
-            <Input id="code" name="code" placeholder="e.g. 2026-99-001" />
+            <Input
+              id="code"
+              name="code"
+              placeholder="Auto-generated if blank"
+            />
           </FormField>
 
           <FormField label="Description" htmlFor="description">

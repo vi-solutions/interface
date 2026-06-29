@@ -30,6 +30,23 @@ export class InvoicesService {
     return Math.ceil((hours - Number.EPSILON) * 2) / 2;
   }
 
+  private formatInvoicePeriodDate(value: string): string {
+    const [year, month, day] = value.slice(0, 10).split("-");
+    return `${month}/${day}/${year}`;
+  }
+
+  private formatQboLineDescription(params: {
+    projectCode: string | null;
+    projectName: string;
+    lineDescription: string;
+    periodStart: string;
+    periodEnd: string;
+  }): string {
+    const codePrefix = params.projectCode ? `[${params.projectCode}] ` : "";
+    const description = params.lineDescription.replace(/^Time\s+—\s+/, "");
+    return `${codePrefix}${params.projectName}: ${description} (${this.formatInvoicePeriodDate(params.periodStart)} - ${this.formatInvoicePeriodDate(params.periodEnd)})`;
+  }
+
   /* ------------------------------------------------------------------ */
   /*  Preview — aggregate billable data without persisting               */
   /* ------------------------------------------------------------------ */
@@ -211,7 +228,7 @@ export class InvoicesService {
   async create(dto: CreateInvoiceDto): Promise<InvoiceWithDetails> {
     // Validate project exists and has a QBO customer
     const { rows: projectRows } = await this.pool.query(
-      `SELECT p.name, c.qbo_customer_id, pc.email AS client_email
+      `SELECT p.name, p.code, c.qbo_customer_id, pc.email AS client_email
        FROM projects p JOIN clients c ON c.id = p.client_id
        LEFT JOIN LATERAL (
          SELECT email
@@ -225,8 +242,12 @@ export class InvoicesService {
     );
     if (!projectRows[0]) throw new NotFoundException("Project not found");
 
-    const { qbo_customer_id: customerRef, client_email: clientEmail } =
-      projectRows[0];
+    const {
+      name: projectName,
+      code: projectCode,
+      qbo_customer_id: customerRef,
+      client_email: clientEmail,
+    } = projectRows[0];
     if (!customerRef) {
       throw new BadRequestException(
         "This project's client is not linked to a QuickBooks customer.",
@@ -257,7 +278,13 @@ export class InvoicesService {
         dueDate: dto.dueDate,
         memo: dto.notes ?? undefined,
         lineItems: lineItems.map((li) => ({
-          description: li.description,
+          description: this.formatQboLineDescription({
+            projectCode,
+            projectName,
+            lineDescription: li.description,
+            periodStart: dto.periodStart,
+            periodEnd: dto.periodEnd,
+          }),
           quantity: li.quantity,
           unitCents: li.unitCents,
         })),

@@ -13,6 +13,11 @@ import type {
   Task,
 } from "@interface/shared";
 import { api } from "@/lib/api";
+import {
+  formatDateString,
+  toDateInputValue,
+  todayDateInputValue,
+} from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
@@ -76,7 +81,7 @@ export default function TimePage() {
   // Group entries by date for the timeline view
   const byDate = entries.reduce<Record<string, TimeEntryWithDetails[]>>(
     (acc, entry) => {
-      const d = String(entry.date).slice(0, 10);
+      const d = toDateInputValue(entry.date);
       if (!acc[d]) acc[d] = [];
       acc[d].push(entry);
       return acc;
@@ -139,7 +144,7 @@ export default function TimePage() {
       projectId: entry.projectId,
       userId: entry.userId,
       taskId: entry.taskId ?? "",
-      date: String(entry.date).slice(0, 10),
+      date: toDateInputValue(entry.date),
       hours: String(entry.hours),
       description: entry.description ?? "",
       billable: entry.billable,
@@ -218,7 +223,7 @@ export default function TimePage() {
                 required
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="">Select project…</option>
                 {projects.map((p) => (
@@ -234,7 +239,7 @@ export default function TimePage() {
                 <label className="block text-sm font-medium mb-1">Task</label>
                 <select
                   name="taskId"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="">No task</option>
                   {tasks.map((t) => (
@@ -255,7 +260,7 @@ export default function TimePage() {
                   name="userId"
                   required
                   defaultValue={currentUser?.id ?? ""}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="">Select…</option>
                   {users.map((u) => (
@@ -279,8 +284,8 @@ export default function TimePage() {
                 name="date"
                 type="date"
                 required
-                defaultValue={new Date().toLocaleDateString("en-CA")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                defaultValue={todayDateInputValue()}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
@@ -295,7 +300,7 @@ export default function TimePage() {
                 min="0.25"
                 required
                 placeholder="e.g. 2.5"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
@@ -306,7 +311,7 @@ export default function TimePage() {
               <input
                 name="description"
                 placeholder="What did you work on?"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
@@ -347,7 +352,7 @@ export default function TimePage() {
                 <div key={date}>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      {new Date(date + "T00:00").toLocaleDateString(undefined, {
+                      {formatDateString(date, {
                         weekday: "long",
                         month: "short",
                         day: "numeric",
@@ -388,7 +393,7 @@ export default function TimePage() {
                                     .then((res) => setEditTasks(res.data))
                                     .catch(() => setEditTasks([]));
                                 }}
-                                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               >
                                 {projects.map((p) => (
                                   <option key={p.id} value={p.id}>
@@ -409,7 +414,7 @@ export default function TimePage() {
                                       f ? { ...f, userId: e.target.value } : f,
                                     )
                                   }
-                                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 >
                                   {users.map((u) => (
                                     <option key={u.id} value={u.id}>
@@ -430,7 +435,7 @@ export default function TimePage() {
                                     f ? { ...f, taskId: e.target.value } : f,
                                   )
                                 }
-                                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               >
                                 <option value="">No task</option>
                                 {editTasks.map((t) => (
@@ -452,7 +457,7 @@ export default function TimePage() {
                                     f ? { ...f, date: e.target.value } : f,
                                   )
                                 }
-                                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               />
                             </div>
                             <div>
@@ -469,7 +474,7 @@ export default function TimePage() {
                                     f ? { ...f, hours: e.target.value } : f,
                                   )
                                 }
-                                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               />
                             </div>
                             <div className="sm:col-span-2">
@@ -486,7 +491,7 @@ export default function TimePage() {
                                       : f,
                                   )
                                 }
-                                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                               />
                             </div>
                           </div>

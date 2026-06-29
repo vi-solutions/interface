@@ -69,6 +69,11 @@ export interface UserExpenseWithDetails extends UserExpense {
   expenseType: ExpenseType;
 }
 
+export interface UserExpenseReportEntry extends UserExpenseWithDetails {
+  project: { id: string; name: string };
+  client: { id: string; name: string };
+}
+
 export interface CreateUserExpenseDto {
   projectId: string;
   userId: string;

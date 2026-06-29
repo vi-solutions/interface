@@ -44,9 +44,7 @@ export default function EditUserPage() {
     api<ApiResponse<User>>(`/users/${id}`)
       .then((res) => setUser(res.data))
       .catch((e) =>
-        setError(
-          e instanceof Error ? e.message : "Failed to load team member",
-        ),
+        setError(e instanceof Error ? e.message : "Failed to load team member"),
       );
   }, [authenticated, id, currentUser, router]);
 
@@ -86,7 +84,7 @@ export default function EditUserPage() {
         });
       }
       addToast("Team member updated");
-      router.push("/teams");
+      router.push("/team");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to update team member",
@@ -101,10 +99,10 @@ export default function EditUserPage() {
       <div className="max-w-2xl mx-auto p-8">
         <div className="mb-6">
           <Link
-            href="/teams"
+            href="/team"
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
-            ← Back to Teams
+            ← Back to Team
           </Link>
         </div>
 
@@ -215,7 +213,7 @@ export default function EditUserPage() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => router.push("/teams")}
+                onClick={() => router.push("/team")}
               >
                 Cancel
               </Button>

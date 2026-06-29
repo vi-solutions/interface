@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api, apiUpload } from "@/lib/api";
+import {
+  formatDateString,
+  toDateInputValue,
+  todayDateInputValue,
+} from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useToast } from "@/lib/toast-context";
 import type {
@@ -23,16 +28,19 @@ interface EditExpenseState {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDateInputValue();
 }
 
 function fmtDate(iso: string) {
-  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-CA", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  return formatDateString(
+    iso,
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    },
+    "en-CA",
+  );
 }
 
 function fmtMoney(cents: number) {
@@ -180,7 +188,7 @@ export default function MobileExpensesPage() {
     setEditingId(exp.id);
     const isDollar = exp.expenseType === "dollar";
     setEditState({
-      date: exp.date.slice(0, 10),
+      date: toDateInputValue(exp.date),
       value: isDollar
         ? (Number(exp.totalCents) / 100).toFixed(2)
         : String(Math.round(Number(exp.quantity ?? 0))),

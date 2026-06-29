@@ -9,7 +9,7 @@ import { AppShell } from "@/components/app-shell";
 import { Card, CardHeader } from "@/components/ui";
 import { ProjectTable } from "@/components/project-table";
 import { api } from "@/lib/api";
-import type { ApiListResponse, ProjectWithClient, Task } from "@interface/shared";
+import type { ApiListResponse, ProjectWithClient, ProjectFinancialSummary, Task } from "@interface/shared";
 
 interface DashboardData {
   projects: ProjectWithClient[];
@@ -21,6 +21,7 @@ export default function Home() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [financialSummaries, setFinancialSummaries] = useState<ProjectFinancialSummary[]>([]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -32,6 +33,9 @@ export default function Home() {
       setData({ projects: projects.data });
     });
     api<ApiListResponse<Task>>("/tasks").then((res) => setTasks(res.data));
+    api<ApiListResponse<ProjectFinancialSummary>>("/projects/financial-summary").then(
+      (res) => setFinancialSummaries(res.data),
+    );
   }, [authenticated]);
 
   if (!authenticated) return null;
@@ -110,10 +114,10 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* Projects Over Budget */}
+        {/* Projects Over Hours Budget */}
         {overBudgetProjects.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Projects Over Budget</h2>
+            <h2 className="text-lg font-semibold mb-3">Projects Over Hours Budget</h2>
             <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 overflow-hidden">
               {overBudgetProjects.map((p, i) => {
                 const pct = Math.min(p.logged / p.budget, 2);
@@ -150,6 +154,54 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {/* Projects Over Financial Budget (labor cost > revenue) */}
+        {user?.isAdmin && (() => {
+          const overFinancial = financialSummaries
+            .filter((p) => p.laborCostCents > p.revenueCents)
+            .sort((a, b) => (b.laborCostCents - b.revenueCents) - (a.laborCostCents - a.revenueCents));
+          if (overFinancial.length === 0) return null;
+          return (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold mb-3">Projects Over Budget</h2>
+              <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 overflow-hidden">
+                {overFinancial.map((p, i) => {
+                  const ratio = p.revenueCents > 0 ? p.laborCostCents / p.revenueCents : 2;
+                  const overBy = p.laborCostCents - p.revenueCents;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`px-4 py-3 flex items-center gap-4 ${i < overFinancial.length - 1 ? "border-b border-gray-100 dark:border-gray-700/50" : ""}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/projects/${p.id}`}
+                          className="text-sm font-medium hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate block"
+                        >
+                          {p.name}
+                        </Link>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {p.client.name}
+                        </p>
+                      </div>
+                      <div className="w-32 shrink-0">
+                        <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-red-500"
+                            style={{ width: `${Math.min(ratio * 100, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-sm tabular-nums text-red-600 dark:text-red-400 font-medium shrink-0">
+                        +${(overBy / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} over
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tasks Nearing Budget */}
         {nearingCapTasks.length > 0 && (

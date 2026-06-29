@@ -25,23 +25,19 @@ import type {
   InvoiceListItem,
 } from "@interface/shared";
 import { api, apiUpload } from "@/lib/api";
+import {
+  formatDateString,
+  localDateFromDateString,
+  toDateInputValue,
+  todayDateInputValue,
+} from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 
-function formatCalendarDate(iso: string) {
-  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
-}
-
-function localDateFromIso(iso: string) {
-  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
 function weekStartKey(iso: string) {
-  const date = localDateFromIso(iso);
+  const date = localDateFromDateString(iso);
   const day = date.getDay();
   const mondayOffset = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + mondayOffset);
@@ -49,7 +45,22 @@ function weekStartKey(iso: string) {
 }
 
 function formatWeekLabel(iso: string) {
-  return formatCalendarDate(iso);
+  return formatDateString(iso, {
+    day: "numeric",
+  });
+}
+
+function formatMonthLabel(iso: string) {
+  return formatDateString(iso, {
+    month: "short",
+  });
+}
+
+function formatCurrency(cents: number) {
+  return `$${(cents / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export default function ProjectDetailPage() {
@@ -324,7 +335,23 @@ export default function ProjectDetailPage() {
   ).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
   const maxWeeklyHours = Math.max(
     0,
-    ...weeklyHours.map((week) => week.billable + week.nonBillable),
+    ...weeklyHours.flatMap((week) => [week.billable, week.nonBillable]),
+  );
+  const hasNonBillableHours = weeklyHours.some((week) => week.nonBillable > 0);
+  const weeklyScaleStep =
+    maxWeeklyHours <= 4
+      ? 1
+      : maxWeeklyHours <= 8
+        ? 2
+        : maxWeeklyHours <= 20
+          ? 5
+          : 10;
+  const weeklyScaleMax =
+    maxWeeklyHours > 0
+      ? Math.ceil(maxWeeklyHours / weeklyScaleStep) * weeklyScaleStep
+      : weeklyScaleStep * 4;
+  const weeklyScaleTicks = Array.from({ length: 5 }, (_, index) =>
+    Number(((weeklyScaleMax / 4) * (4 - index)).toFixed(1)),
   );
 
   // Build a rate lookup: userId -> hourly charge-out rate in cents
@@ -363,7 +390,7 @@ export default function ProjectDetailPage() {
     (sum, e) => sum + Number(e.totalCents),
     0,
   );
-  const budgetUsedCents = revenueCents + expensesTotalCents;
+  const budgetUsedCents = revenueCents;
   const budgetRemainingCents =
     project != null && project.budgetCents != null
       ? project.budgetCents - budgetUsedCents
@@ -433,7 +460,7 @@ export default function ProjectDetailPage() {
     setEditEntryForm({
       userId: entry.userId,
       taskId: entry.taskId ?? "",
-      date: String(entry.date).slice(0, 10),
+      date: toDateInputValue(entry.date),
       hours: String(entry.hours),
       description: entry.description ?? "",
       billable: entry.billable,
@@ -521,7 +548,7 @@ export default function ProjectDetailPage() {
         : String(Number(expense.quantity ?? 0));
     setEditingExpenseId(expense.id);
     setEditExpenseForm({
-      date: String(expense.date).slice(0, 10),
+      date: toDateInputValue(expense.date),
       amount,
       notes: expense.notes ?? "",
     });
@@ -649,9 +676,7 @@ export default function ProjectDetailPage() {
                   <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                     Start Date
                   </h3>
-                  <p className="mt-1">
-                    {formatCalendarDate(project.startDate)}
-                  </p>
+                  <p className="mt-1">{formatDateString(project.startDate)}</p>
                 </div>
               )}
               {project.endDate && (
@@ -659,9 +684,7 @@ export default function ProjectDetailPage() {
                   <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                     End Date
                   </h3>
-                  <p className="mt-1">
-                    {formatCalendarDate(project.endDate)}
-                  </p>
+                  <p className="mt-1">{formatDateString(project.endDate)}</p>
                 </div>
               )}
               {project.projectManager && (
@@ -836,162 +859,27 @@ export default function ProjectDetailPage() {
                   )}
                 </div>
 
-                {weeklyHours.length > 0 && (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                          Hours by Week
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          Billable vs. non-billable logged hours
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                          Billable
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
-                          Non-billable
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <div className="flex min-w-max items-end gap-3 pr-2">
-                        {weeklyHours.map((week) => {
-                          const total = week.billable + week.nonBillable;
-                          const barHeight =
-                            maxWeeklyHours > 0
-                              ? Math.max(8, (total / maxWeeklyHours) * 128)
-                              : 0;
-                          const billablePct =
-                            total > 0 ? (week.billable / total) * 100 : 0;
-                          const nonBillablePct = 100 - billablePct;
-
-                          return (
-                            <div
-                              key={week.weekStart}
-                              className="flex w-20 shrink-0 flex-col items-center gap-2"
-                            >
-                              <div className="flex h-32 items-end">
-                                <div
-                                  className="flex w-9 flex-col-reverse overflow-hidden rounded-t-md bg-gray-100 dark:bg-gray-700"
-                                  style={{ height: `${barHeight}px` }}
-                                  title={`${total.toFixed(1)}h total`}
-                                >
-                                  {week.billable > 0 && (
-                                    <div
-                                      className="bg-emerald-600"
-                                      style={{ height: `${billablePct}%` }}
-                                    />
-                                  )}
-                                  {week.nonBillable > 0 && (
-                                    <div
-                                      className="bg-gray-300 dark:bg-gray-600"
-                                      style={{ height: `${nonBillablePct}%` }}
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-xs font-medium tabular-nums text-gray-700 dark:text-gray-300">
-                                  {total.toFixed(1)}h
-                                </p>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                                  {formatWeekLabel(week.weekStart)}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Admin: dollar budget row */}
                 {currentUser?.isAdmin && project.budgetCents != null && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Budget
-                      </p>
-                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                        $
-                        {(project.budgetCents / 100).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Billable Time
-                      </p>
-                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                        $
-                        {(revenueCents / 100).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {totalBillable.toFixed(1)}h
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Expenses
-                      </p>
-                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                        $
-                        {(expensesTotalCents / 100).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {userExpenses.length} item
-                        {userExpenses.length !== 1 ? "s" : ""}
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div
                       className={`rounded-lg border p-4 ${
-                        budgetRemainingCents != null &&
-                        budgetRemainingCents >= 0
-                          ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20"
-                          : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                        budgetPct != null && budgetPct >= 100
+                          ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+                          : budgetPct != null && budgetPct >= 90
+                            ? "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20"
+                            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
                       }`}
                     >
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Budget Remaining
+                        Dollar Budget
                       </p>
-                      <p
-                        className={`mt-1 text-xl font-bold tabular-nums ${
-                          budgetRemainingCents != null &&
-                          budgetRemainingCents >= 0
-                            ? "text-emerald-700 dark:text-emerald-300"
-                            : "text-red-700 dark:text-red-300"
-                        }`}
-                      >
-                        {budgetRemainingCents != null &&
-                          budgetRemainingCents < 0 &&
-                          "−"}
-                        $
-                        {budgetRemainingCents != null
-                          ? (
-                              Math.abs(budgetRemainingCents) / 100
-                            ).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : "—"}
+                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                        {formatCurrency(budgetUsedCents)} /{" "}
+                        {formatCurrency(project.budgetCents)}
                       </p>
                       {budgetPct != null && (
-                        <div className="mt-2">
+                        <div className="mt-4">
                           <div className="h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
                             <div
                               className={`h-1.5 rounded-full ${
@@ -1016,22 +904,6 @@ export default function ProjectDetailPage() {
                 {/* Admin: hours budget row */}
                 {currentUser?.isAdmin && project.budgetHours != null && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Budget
-                      </p>
-                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                        {Number(project.budgetHours).toFixed(0)}h
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Total Hours
-                      </p>
-                      <p className="mt-1 text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
-                        {totalHours.toFixed(1)}h
-                      </p>
-                    </div>
                     <div
                       className={`rounded-lg border p-4 ${
                         budgetHoursRemaining != null &&
@@ -1052,7 +924,7 @@ export default function ProjectDetailPage() {
                         }`}
                       >
                         {budgetHoursRemaining != null
-                          ? `${budgetHoursRemaining < 0 ? "−" : ""}${Math.abs(budgetHoursRemaining).toFixed(1)}h`
+                          ? `${budgetHoursRemaining < 0 ? "−" : ""}${Math.abs(budgetHoursRemaining).toFixed(1)} / ${Number(project.budgetHours).toFixed(1)}h`
                           : "—"}
                       </p>
                       {budgetHoursPct != null && (
@@ -1130,6 +1002,155 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   )}
+
+                {weeklyHours.length > 0 && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Hours by Week
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                          Billable
+                        </span>
+                        {hasNonBillableHours && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                            Non-billable
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto overflow-y-hidden">
+                      <div className="flex min-w-max items-start pr-2">
+                        <div className="relative pb-14">
+                          <div className="pointer-events-none absolute inset-x-0 top-0 h-48">
+                            {weeklyScaleTicks.map((tick) => (
+                              <div
+                                key={tick}
+                                className="absolute left-0 right-0 border-t border-gray-100 dark:border-gray-700/60"
+                                style={{
+                                  top: `${100 - (tick / weeklyScaleMax) * 100}%`,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <div className="relative flex h-48 items-end gap-1.5 border-b border-gray-200 dark:border-gray-700">
+                            {weeklyHours.map((week, index) => {
+                              const weekMonth = week.weekStart.slice(0, 7);
+                              const previousMonth = weeklyHours[
+                                index - 1
+                              ]?.weekStart.slice(0, 7);
+                              const startsMonth =
+                                index === 0 || weekMonth !== previousMonth;
+                              const billableHeight =
+                                week.billable > 0
+                                  ? Math.max(
+                                      7,
+                                      (week.billable / weeklyScaleMax) * 173,
+                                    )
+                                  : 0;
+                              const nonBillableHeight =
+                                week.nonBillable > 0
+                                  ? Math.max(
+                                      7,
+                                      (week.nonBillable / weeklyScaleMax) * 173,
+                                    )
+                                  : 0;
+                              const weekHasNonBillable = week.nonBillable > 0;
+
+                              return (
+                                <div
+                                  key={week.weekStart}
+                                  className="relative flex w-[4.5rem] shrink-0 flex-col items-center"
+                                >
+                                  {startsMonth && index > 0 && (
+                                    <div className="absolute -left-0.5 bottom-0 h-48 border-l border-gray-300 dark:border-gray-600" />
+                                  )}
+                                  <div
+                                    className="flex h-48 items-end gap-1.5"
+                                    title={
+                                      weekHasNonBillable
+                                        ? `Billable ${week.billable.toFixed(1)}, non-billable ${week.nonBillable.toFixed(1)}`
+                                        : `Billable ${week.billable.toFixed(1)}`
+                                    }
+                                  >
+                                    <div
+                                      className={
+                                        weekHasNonBillable
+                                          ? "w-4 bg-emerald-600"
+                                          : "w-6 bg-emerald-600"
+                                      }
+                                      style={{
+                                        height: `${billableHeight}px`,
+                                      }}
+                                    />
+                                    {weekHasNonBillable && (
+                                      <div
+                                        className="w-4 bg-gray-300 dark:bg-gray-600"
+                                        style={{
+                                          height: `${nonBillableHeight}px`,
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="absolute top-full mt-1.5 w-full text-center">
+                                    {weekHasNonBillable ? (
+                                      <p className="flex justify-center gap-1 text-xs font-medium tabular-nums">
+                                        <span className="text-emerald-700 dark:text-emerald-400">
+                                          {week.billable.toFixed(1)}
+                                        </span>
+                                        <span className="text-gray-400">/</span>
+                                        <span className="text-gray-500 dark:text-gray-400">
+                                          {week.nonBillable.toFixed(1)}
+                                        </span>
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+                                        {week.billable.toFixed(1)}
+                                      </p>
+                                    )}
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {formatWeekLabel(week.weekStart)}
+                                    </p>
+                                    <p className="h-5 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                      {startsMonth
+                                        ? formatMonthLabel(week.weekStart)
+                                        : ""}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="relative ml-4 h-48 w-10 shrink-0 border-l border-gray-200 dark:border-gray-700 text-right text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                          {weeklyScaleTicks.map((tick) => (
+                            <span
+                              key={tick}
+                              className="absolute right-0 -translate-y-1/2"
+                              style={{
+                                top: `calc(${100 - (tick / weeklyScaleMax) * 100}% + ${
+                                  tick === weeklyScaleMax
+                                    ? "0.375rem"
+                                    : tick === 0
+                                      ? "-0.375rem"
+                                      : "0rem"
+                                })`,
+                              }}
+                            >
+                              {tick}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Notes ─────────────────────────────────────────── */}
                 <section className="mb-10">
@@ -1359,7 +1380,7 @@ export default function ProjectDetailPage() {
                             <span className="text-sm">{m.name}</span>
                             {m.date ? (
                               <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-                                {new Date(m.date).toLocaleDateString("en-CA")}
+                                {formatDateString(m.date, undefined, "en-CA")}
                               </span>
                             ) : (
                               <span className="text-sm text-gray-400">—</span>
@@ -1466,11 +1487,15 @@ export default function ProjectDetailPage() {
                           className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                         >
                           <td className="px-4 py-2.5 tabular-nums text-gray-600 dark:text-gray-300">
-                            {new Date(inv.periodStart).toLocaleDateString(
+                            {formatDateString(
+                              inv.periodStart,
+                              undefined,
                               "en-CA",
                             )}{" "}
-                            -{" "}
-                            {new Date(inv.periodEnd).toLocaleDateString(
+                            –{" "}
+                            {formatDateString(
+                              inv.periodEnd,
+                              undefined,
                               "en-CA",
                             )}
                           </td>
@@ -1619,7 +1644,7 @@ export default function ProjectDetailPage() {
                       name="date"
                       type="date"
                       required
-                      defaultValue={new Date().toISOString().slice(0, 10)}
+                      defaultValue={todayDateInputValue()}
                       className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
@@ -1785,7 +1810,7 @@ export default function ProjectDetailPage() {
                             className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                           >
                             <td className="px-4 py-2.5">
-                              {new Date(ue.date).toLocaleDateString()}
+                              {formatDateString(ue.date)}
                             </td>
                             <td className="px-4 py-2.5 font-medium">
                               {ue.expenseName}
@@ -1956,7 +1981,7 @@ export default function ProjectDetailPage() {
                       name="date"
                       type="date"
                       required
-                      defaultValue={new Date().toLocaleDateString("en-CA")}
+                      defaultValue={todayDateInputValue()}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
@@ -2437,7 +2462,7 @@ export default function ProjectDetailPage() {
                               className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                             >
                               <td className="px-4 py-2.5 whitespace-nowrap">
-                                {formatCalendarDate(entry.date)}
+                                {formatDateString(entry.date)}
                               </td>
                               <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
                                 {entry.task?.name || "—"}

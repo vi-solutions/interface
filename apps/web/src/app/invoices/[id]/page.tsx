@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ApiResponse, InvoiceWithDetails } from "@interface/shared";
 import { api } from "@/lib/api";
+import { formatDateString } from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Button, Card, Badge, ErrorAlert } from "@/components/ui";
@@ -12,12 +13,15 @@ import { PageHeader, Button, Card, Badge, ErrorAlert } from "@/components/ui";
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
-  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDateString(
+    iso,
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+    "en-CA",
+  );
 }
 
 function formatMoney(cents: number) {

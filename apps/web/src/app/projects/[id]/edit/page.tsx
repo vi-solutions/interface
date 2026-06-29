@@ -29,6 +29,7 @@ import type {
   CreateProjectUserRateDto,
 } from "@interface/shared";
 import { api } from "@/lib/api";
+import { toDateInputValue } from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
@@ -359,7 +360,7 @@ export default function EditProjectPage() {
                   id="startDate"
                   name="startDate"
                   type="date"
-                  defaultValue={project.startDate?.slice(0, 10) ?? ""}
+                  defaultValue={toDateInputValue(project.startDate)}
                 />
               </FormField>
               <FormField label="End Date" htmlFor="endDate">
@@ -367,7 +368,7 @@ export default function EditProjectPage() {
                   id="endDate"
                   name="endDate"
                   type="date"
-                  defaultValue={project.endDate?.slice(0, 10) ?? ""}
+                  defaultValue={toDateInputValue(project.endDate)}
                 />
               </FormField>
             </div>
@@ -950,7 +951,7 @@ export default function EditProjectPage() {
                                   setEditingMilestoneId(ms.id);
                                   setEditingMilestoneName(ms.name);
                                   setEditingMilestoneDate(
-                                    ms.date?.slice(0, 10) ?? "",
+                                    toDateInputValue(ms.date),
                                   );
                                 }}
                                 className="text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"

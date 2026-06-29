@@ -24,8 +24,10 @@ import { ProjectUserRatesService } from "../project-user-rates/project-user-rate
 import type {
   ApiResponse,
   ApiListResponse,
+  ExpenseType,
   UserExpense,
   UserExpenseWithDetails,
+  UserExpenseReportEntry,
   CreateUserExpenseDto,
   UpdateUserExpenseDto,
 } from "@interface/shared";
@@ -49,6 +51,30 @@ export class UserExpensesController {
       return { data, total: data.length };
     }
     const data = await this.userExpensesService.findByProject(projectId!);
+    return { data, total: data.length };
+  }
+
+  @Get("report")
+  async report(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Query("userId") userId: string | undefined,
+    @Query("clientId") clientId: string | undefined,
+    @Query("projectId") projectId: string | undefined,
+    @Query("expenseType") expenseType: ExpenseType | undefined,
+    @Query("projectExpenseId") projectExpenseId: string | undefined,
+    @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
+  ): Promise<ApiListResponse<UserExpenseReportEntry>> {
+    if (!req.user.isAdmin) throw new ForbiddenException();
+    const data = await this.userExpensesService.findReport({
+      startDate,
+      endDate,
+      userId,
+      clientId,
+      projectId,
+      expenseType,
+      projectExpenseId,
+    });
     return { data, total: data.length };
   }
 

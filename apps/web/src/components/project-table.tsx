@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { ProjectStatus, ProjectWithClient } from "@interface/shared";
+import { formatDateString } from "@/lib/dates";
 import { Badge, EmptyState, Select } from "@/components/ui";
 
-type SortBy = "name" | "client" | "projectManager" | "status" | "createdAt";
+type SortBy = "name" | "code" | "client" | "projectManager" | "status" | "createdAt";
 type SortDirection = "asc" | "desc";
 type StatusFilter = "all" | ProjectStatus;
 
@@ -65,6 +66,8 @@ export function ProjectTable({
 
     if (sortBy === "name") {
       result = a.name.localeCompare(b.name);
+    } else if (sortBy === "code") {
+      result = (a.code ?? "").localeCompare(b.code ?? "");
     } else if (sortBy === "client") {
       result =
         a.client.name.localeCompare(b.client.name) ||
@@ -159,6 +162,13 @@ export function ProjectTable({
                   onSort={handleSort}
                 />
                 <SortableHeader
+                  label="Code"
+                  sortKey="code"
+                  activeSortKey={sortBy}
+                  direction={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
                   label="Client"
                   sortKey="client"
                   activeSortKey={sortBy}
@@ -202,6 +212,9 @@ export function ProjectTable({
                       {project.name}
                     </Link>
                   </td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs whitespace-nowrap">
+                    {project.code ?? "—"}
+                  </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                     {project.client.name}
                   </td>
@@ -212,7 +225,7 @@ export function ProjectTable({
                     <Badge>{PROJECT_STATUS_LABELS[project.status]}</Badge>
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                    {formatCalendarDate(project.createdAt)}
+                    {formatDateString(project.createdAt)}
                   </td>
                 </tr>
               ))}
@@ -258,9 +271,4 @@ function SortableHeader({
       </button>
     </th>
   );
-}
-
-function formatCalendarDate(iso: string) {
-  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
 }

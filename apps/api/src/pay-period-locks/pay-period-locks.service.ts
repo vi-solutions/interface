@@ -50,8 +50,12 @@ export class PayPeriodLocksService {
     await this.pool.query(
       `INSERT INTO pay_period_locks
          (id, period_start, period_end, locked_by)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (period_start, period_end) DO NOTHING`,
+       SELECT $1, $2, $3, $4
+       WHERE NOT EXISTS (
+         SELECT 1 FROM pay_period_locks
+         WHERE period_start = $2
+           AND period_end = $3
+       )`,
       [uuid(), periodStart, periodEnd, lockedBy],
     );
 

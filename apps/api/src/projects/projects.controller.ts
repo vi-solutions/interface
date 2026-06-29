@@ -18,6 +18,7 @@ import type {
   ApiListResponse,
   Project,
   ProjectWithClient,
+  ProjectFinancialSummary,
 } from "@interface/shared";
 
 @Controller("projects")
@@ -34,6 +35,12 @@ export class ProjectsController {
     const data = effectiveUserId
       ? await this.projectsService.findByUser(effectiveUserId)
       : await this.projectsService.findAll();
+    return { data, total: data.length };
+  }
+
+  @Get("financial-summary")
+  async findFinancialSummaries(): Promise<ApiListResponse<ProjectFinancialSummary>> {
+    const data = await this.projectsService.findFinancialSummaries();
     return { data, total: data.length };
   }
 

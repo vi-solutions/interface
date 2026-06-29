@@ -7,6 +7,7 @@ import type {
   TimeEntryWithDetails,
 } from "@interface/shared";
 import { api } from "@/lib/api";
+import { dateToDateInputValue, formatDateString } from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
@@ -16,16 +17,19 @@ import { PageHeader, Button, Card } from "@/components/ui";
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dateToDateInputValue(d);
 }
 
 function formatDate(iso: string) {
-  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDateString(
+    iso,
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+    "en-CA",
+  );
 }
 
 function currentPeriod(): [string, string] {

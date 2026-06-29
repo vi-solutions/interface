@@ -5,6 +5,7 @@ import { DATABASE_POOL } from "../db/database.module";
 import type {
   Project,
   ProjectWithClient,
+  ProjectFinancialSummary,
   CreateProjectDto,
   UpdateProjectDto,
 } from "@interface/shared";
@@ -12,6 +13,34 @@ import type {
 @Injectable()
 export class ProjectsService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+
+  private projectCodeDatePrefix(date = new Date()): string {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Vancouver",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date);
+    const getPart = (type: string) =>
+      parts.find((part) => part.type === type)?.value ?? "";
+    return `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+  }
+
+  private async generateProjectCode(): Promise<string> {
+    const prefix = this.projectCodeDatePrefix();
+    const { rows } = await this.pool.query<{ code: string }>(
+      "SELECT code FROM projects WHERE code LIKE $1",
+      [`${prefix}%`],
+    );
+
+    const nextIndex =
+      rows.reduce((max, row) => {
+        const match = row.code.match(new RegExp(`^${prefix}(\\d+)$`));
+        return match ? Math.max(max, Number(match[1])) : max;
+      }, -1) + 1;
+
+    return `${prefix}${nextIndex}`;
+  }
 
   async findAll(): Promise<ProjectWithClient[]> {
     const { rows } = await this.pool.query(
@@ -74,6 +103,7 @@ export class ProjectsService {
 
   async create(dto: CreateProjectDto): Promise<Project> {
     const id = uuid();
+    const projectCode = dto.code?.trim() || (await this.generateProjectCode());
     const { rows } = await this.pool.query(
       `INSERT INTO projects (id, client_id, name, code, description, status, phase, start_date, end_date, budget_cents, budget_hours, project_manager_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -87,7 +117,7 @@ export class ProjectsService {
         id,
         dto.clientId,
         dto.name,
-        dto.code ?? null,
+        projectCode,
         dto.description ?? null,
         dto.status ?? "draft",
         dto.phase ?? null,
@@ -139,5 +169,35 @@ export class ProjectsService {
       id,
     ]);
     if (result.rowCount === 0) throw new NotFoundException("Project not found");
+  }
+
+  async findFinancialSummaries(): Promise<ProjectFinancialSummary[]> {
+    const BURDEN_RATE = 1.15;
+    const { rows } = await this.pool.query(
+      `SELECT
+         p.id,
+         p.name,
+         json_build_object('id', c.id, 'name', c.name) AS client,
+         COALESCE(SUM(
+           CASE WHEN te.billable
+             THEN te.hours * COALESCE(pur.hourly_rate_cents, u.rate_cents)
+             ELSE 0
+           END
+         ), 0)::bigint AS "revenueCents",
+         COALESCE(SUM(
+           te.hours * u.hourly_cost_cents * $1
+         ), 0)::bigint AS "laborCostCents"
+       FROM projects p
+       JOIN clients c ON c.id = p.client_id
+       LEFT JOIN time_entries te ON te.project_id = p.id
+       LEFT JOIN users u ON u.id = te.user_id
+       LEFT JOIN project_user_rates pur
+         ON pur.project_id = p.id AND pur.user_id = te.user_id
+       WHERE p.status = 'active'
+       GROUP BY p.id, p.name, c.id, c.name
+       ORDER BY p.name`,
+      [BURDEN_RATE],
+    );
+    return rows;
   }
 }

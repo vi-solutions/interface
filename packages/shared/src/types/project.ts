@@ -61,3 +61,11 @@ export interface ProjectWithClient extends Project {
   client: { id: string; name: string };
   projectManager: { id: string; name: string } | null;
 }
+
+export interface ProjectFinancialSummary {
+  id: string;
+  name: string;
+  client: { id: string; name: string };
+  revenueCents: number;
+  laborCostCents: number;
+}
