@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { formatDateString } from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
+import { InvoiceRoundingSummaryPanel } from "@/components/invoice-rounding-summary";
 import { PageHeader, Button, Card, Badge, ErrorAlert } from "@/components/ui";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -89,6 +90,10 @@ export default function InvoiceDetailPage() {
 
   const subtotalCents =
     invoice?.lineItems?.reduce((s, li) => s + Number(li.totalCents), 0) ?? 0;
+  const roundingSummary =
+    invoice?.roundingSummary && invoice.roundingSummary.employees.length > 0
+      ? invoice.roundingSummary
+      : null;
 
   return (
     <AppShell>
@@ -191,6 +196,13 @@ export default function InvoiceDetailPage() {
                 </p>
               </div>
             </div>
+
+            {roundingSummary && (
+              <InvoiceRoundingSummaryPanel
+                roundingSummary={roundingSummary}
+                className="mb-6"
+              />
+            )}
 
             {/* Line items */}
             <Card padding={false} className="mb-6">

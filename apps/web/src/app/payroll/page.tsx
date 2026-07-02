@@ -16,6 +16,8 @@ import { PageHeader, Button, Card } from "@/components/ui";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+type ReportBasis = "actual" | "payroll" | "invoice";
+
 function fmt(d: Date) {
   return dateToDateInputValue(d);
 }
@@ -36,12 +38,7 @@ function currentPeriod(): [string, string] {
   const today = new Date();
   const y = today.getFullYear();
   const m = today.getMonth();
-  const d = today.getDate();
-  if (d <= 15) {
-    return [fmt(new Date(y, m, 1)), fmt(new Date(y, m, 15))];
-  } else {
-    return [fmt(new Date(y, m, 16)), fmt(new Date(y, m + 1, 0))];
-  }
+  return [fmt(new Date(y, m, 1)), fmt(new Date(y, m + 1, 0))];
 }
 
 function recentPeriods(): { label: string; start: string; end: string }[] {
@@ -56,14 +53,9 @@ function recentPeriods(): { label: string; start: string; end: string }[] {
       year: "numeric",
     });
     periods.push({
-      label: `${monthLabel} 16–end`,
-      start: fmt(new Date(y, m, 16)),
-      end: fmt(new Date(y, m + 1, 0)),
-    });
-    periods.push({
-      label: `${monthLabel} 1–15`,
+      label: monthLabel,
       start: fmt(new Date(y, m, 1)),
-      end: fmt(new Date(y, m, 15)),
+      end: fmt(new Date(y, m + 1, 0)),
     });
   }
   return periods;
@@ -75,18 +67,24 @@ function groupByEmployee(entries: TimeEntryWithDetails[]) {
     {
       name: string;
       byProject: Map<string, { name: string; hours: number }>;
+      entries: TimeEntryWithDetails[];
     }
   >();
   for (const e of entries) {
     if (!byUser.has(e.userId))
-      byUser.set(e.userId, { name: e.user.name, byProject: new Map() });
+      byUser.set(e.userId, {
+        name: e.user.name,
+        byProject: new Map(),
+        entries: [],
+      });
     const user = byUser.get(e.userId)!;
     if (!user.byProject.has(e.project.id))
       user.byProject.set(e.project.id, { name: e.project.name, hours: 0 });
     user.byProject.get(e.project.id)!.hours += Number(e.hours);
+    user.entries.push(e);
   }
   return Array.from(byUser.entries())
-    .map(([userId, { name, byProject }]) => {
+    .map(([userId, { name, byProject, entries }]) => {
       const projects = Array.from(byProject.entries())
         .map(([projectId, { name: pName, hours }]) => ({
           projectId,
@@ -99,9 +97,27 @@ function groupByEmployee(entries: TimeEntryWithDetails[]) {
         name,
         totalHours: projects.reduce((s, p) => s + p.hours, 0),
         projects,
+        entries: entries.sort(
+          (a, b) =>
+            a.date.localeCompare(b.date) ||
+            a.project.name.localeCompare(b.project.name) ||
+            (a.task?.name ?? "").localeCompare(b.task?.name ?? ""),
+        ),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function basisLabel(basis: ReportBasis) {
+  if (basis === "actual") return "Actual entered time";
+  if (basis === "invoice") return "Invoice rounded time";
+  return "Payroll rounded time";
+}
+
+function basisRoundIncrement(basis: ReportBasis) {
+  if (basis === "invoice") return 0.5;
+  if (basis === "payroll") return 0.25;
+  return null;
 }
 
 function exportCsv(
@@ -138,6 +154,7 @@ export default function PayrollPage() {
 
   const [periodStart, setPeriodStart] = useState(currentPeriod()[0]);
   const [periodEnd, setPeriodEnd] = useState(currentPeriod()[1]);
+  const [reportBasis, setReportBasis] = useState<ReportBasis>("payroll");
   const [entries, setEntries] = useState<TimeEntryWithDetails[] | null>(null);
   const [lock, setLock] = useState<PayPeriodLock | null>(null);
   const [loading, setLoading] = useState(false);
@@ -159,9 +176,17 @@ export default function PayrollPage() {
     setLoading(true);
     setError(null);
     try {
+      const params = new URLSearchParams({
+        startDate: periodStart,
+        endDate: periodEnd,
+      });
+      const roundIncrement = basisRoundIncrement(reportBasis);
+      if (roundIncrement != null) {
+        params.set("roundUpIncrementHours", String(roundIncrement));
+      }
       const [entriesRes, locksRes] = await Promise.all([
         api<ApiListResponse<TimeEntryWithDetails>>(
-          `/time-entries?startDate=${periodStart}&endDate=${periodEnd}&roundUpIncrementHours=0.25`,
+          `/time-entries?${params}`,
         ),
         api<ApiListResponse<PayPeriodLock>>(
           `/pay-period-locks?periodStart=${periodStart}&periodEnd=${periodEnd}`,
@@ -236,10 +261,31 @@ export default function PayrollPage() {
                 className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 {periods.map((p) => (
-                  <option key={p.start} value={`${p.start}|${p.end}`}>
+                  <option
+                    key={`${p.start}|${p.end}`}
+                    value={`${p.start}|${p.end}`}
+                  >
                     {p.label}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                Report basis
+              </label>
+              <select
+                value={reportBasis}
+                onChange={(e) => {
+                  setReportBasis(e.target.value as ReportBasis);
+                  setEntries(null);
+                  setLock(null);
+                }}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="payroll">Payroll rounded (0.25h)</option>
+                <option value="invoice">Invoice rounded (0.5h)</option>
+                <option value="actual">Actual entered time</option>
               </select>
             </div>
             <Button onClick={handleLoad} disabled={loading}>
@@ -263,26 +309,31 @@ export default function PayrollPage() {
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {formatDate(periodStart)} – {formatDate(periodEnd)}
+                  <span className="ml-2 text-xs">
+                    {basisLabel(reportBasis)}
+                  </span>
                 </p>
                 <div className="flex items-center gap-3">
                   <p className="text-sm font-semibold tabular-nums">
                     {totalHours.toFixed(2)}h total
                   </p>
-                  <Button
-                    variant="secondary"
-                    disabled={lockLoading}
-                    onClick={() =>
-                      lock ? unlockPeriod(lock.id) : lockPeriod()
-                    }
-                  >
-                    {lockLoading
-                      ? lock
-                        ? "Unlocking..."
-                        : "Locking..."
-                      : lock
-                        ? "Unlock period"
-                        : "Lock period"}
-                  </Button>
+                  {reportBasis === "payroll" && (
+                    <Button
+                      variant="secondary"
+                      disabled={lockLoading}
+                      onClick={() =>
+                        lock ? unlockPeriod(lock.id) : lockPeriod()
+                      }
+                    >
+                      {lockLoading
+                        ? lock
+                          ? "Unlocking..."
+                          : "Locking..."
+                        : lock
+                          ? "Unlock period"
+                          : "Lock period"}
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     onClick={() => exportCsv(grouped, periodStart, periodEnd)}
@@ -304,7 +355,7 @@ export default function PayrollPage() {
                         <span className="font-semibold text-sm">
                           {emp.name}
                         </span>
-                        {lock && (
+                        {reportBasis === "payroll" && lock && (
                           <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                             Period locked
                           </span>
@@ -328,6 +379,59 @@ export default function PayrollPage() {
                           </span>
                         </div>
                       ))}
+                      <details className="border-t border-gray-100 dark:border-gray-700/50">
+                        <summary className="cursor-pointer px-5 py-2 text-xs font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">
+                          View {emp.entries.length}{" "}
+                          {emp.entries.length === 1 ? "entry" : "entries"}
+                        </summary>
+                        <div className="overflow-x-auto px-5 pb-4">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-gray-100 dark:border-gray-700/50 text-gray-500 dark:text-gray-400">
+                                <th className="py-2 pr-3 text-left font-medium">
+                                  Date
+                                </th>
+                                <th className="py-2 pr-3 text-left font-medium">
+                                  Project
+                                </th>
+                                <th className="py-2 pr-3 text-left font-medium">
+                                  Task
+                                </th>
+                                <th className="py-2 pr-3 text-left font-medium">
+                                  Notes
+                                </th>
+                                <th className="py-2 text-right font-medium">
+                                  Hours
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {emp.entries.map((entry) => (
+                                <tr
+                                  key={entry.id}
+                                  className="border-b border-gray-100 dark:border-gray-700/40 last:border-0"
+                                >
+                                  <td className="py-2 pr-3 tabular-nums text-gray-600 dark:text-gray-400">
+                                    {formatDate(entry.date)}
+                                  </td>
+                                  <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">
+                                    {entry.project.name}
+                                  </td>
+                                  <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">
+                                    {entry.task?.name ?? "-"}
+                                  </td>
+                                  <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">
+                                    {entry.description ?? "-"}
+                                  </td>
+                                  <td className="py-2 text-right tabular-nums font-medium text-gray-700 dark:text-gray-300">
+                                    {Number(entry.hours).toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
                     </div>
                   </Card>
                 ))}

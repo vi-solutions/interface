@@ -4,6 +4,7 @@ export interface Task {
   name: string;
   description: string | null;
   budgetHours: number | null;
+  countsTowardBudget: boolean;
   loggedHours: number;
   createdAt: string;
   updatedAt: string;
@@ -27,12 +28,14 @@ export interface CreateTaskDto {
   name: string;
   description?: string;
   budgetHours?: number;
+  countsTowardBudget?: boolean;
 }
 
 export interface UpdateTaskDto {
   name?: string;
   description?: string | null;
   budgetHours?: number | null;
+  countsTowardBudget?: boolean;
 }
 
 export interface CreateTaskUserBudgetDto {

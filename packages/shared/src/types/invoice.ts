@@ -30,6 +30,7 @@ export interface Invoice {
 export interface InvoiceWithDetails extends Invoice {
   project: { id: string; name: string };
   lineItems: InvoiceLineItem[];
+  roundingSummary?: InvoiceRoundingSummary;
 }
 
 export interface InvoiceListItem extends Invoice {

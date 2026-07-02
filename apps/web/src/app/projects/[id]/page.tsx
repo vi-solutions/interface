@@ -271,6 +271,16 @@ export default function ProjectDetailPage() {
     (sum, e) => sum + (e.billable ? Number(e.hours) : 0),
     0,
   );
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const countsTowardBudget = (entry: TimeEntryWithUser) => {
+    if (!entry.task?.id) return true;
+    return taskById.get(entry.task.id)?.countsTowardBudget !== false;
+  };
+  const budgetedEntries = entries.filter(countsTowardBudget);
+  const budgetedHours = budgetedEntries.reduce(
+    (sum, e) => sum + Number(e.hours),
+    0,
+  );
 
   // Group entries by task for the hour summary
   const byTask = entries.reduce<
@@ -298,6 +308,9 @@ export default function ProjectDetailPage() {
 
   const taskBudget = tasks.reduce(
     (acc, task) => {
+      if (!task.countsTowardBudget) {
+        return acc;
+      }
       if (task.budgetHours == null || Number(task.budgetHours) <= 0) {
         return acc;
       }
@@ -376,6 +389,10 @@ export default function ProjectDetailPage() {
     if (!e.billable) return sum;
     return sum + Number(e.hours) * (rateByUser[e.userId] ?? 0);
   }, 0);
+  const budgetRevenueCents = budgetedEntries.reduce((sum, e) => {
+    if (!e.billable) return sum;
+    return sum + Number(e.hours) * (rateByUser[e.userId] ?? 0);
+  }, 0);
 
   // Cost = sum of all hours × hourly wage + 15% burden (vacation, EI, CPP, etc.)
   const BURDEN_RATE = 1.15;
@@ -390,7 +407,7 @@ export default function ProjectDetailPage() {
     (sum, e) => sum + Number(e.totalCents),
     0,
   );
-  const budgetUsedCents = revenueCents;
+  const budgetUsedCents = budgetRevenueCents;
   const budgetRemainingCents =
     project != null && project.budgetCents != null
       ? project.budgetCents - budgetUsedCents
@@ -401,11 +418,11 @@ export default function ProjectDetailPage() {
       : null;
   const budgetHoursRemaining =
     project?.budgetHours != null
-      ? Number(project.budgetHours) - totalHours
+      ? Number(project.budgetHours) - budgetedHours
       : null;
   const budgetHoursPct =
     project?.budgetHours && Number(project.budgetHours) > 0
-      ? Math.min(100, (totalHours / Number(project.budgetHours)) * 100)
+      ? Math.min(100, (budgetedHours / Number(project.budgetHours)) * 100)
       : null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -1968,6 +1985,7 @@ export default function ProjectDetailPage() {
                       {tasks.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name}
+                          {!t.countsTowardBudget ? " (budget exempt)" : ""}
                         </option>
                       ))}
                     </select>
@@ -2108,7 +2126,9 @@ export default function ProjectDetailPage() {
                       {tasks.map((t) => {
                         const logged = byTask[t.id]?.hours ?? 0;
                         const budget =
-                          t.budgetHours != null ? Number(t.budgetHours) : null;
+                          t.countsTowardBudget && t.budgetHours != null
+                            ? Number(t.budgetHours)
+                            : null;
                         const remaining =
                           budget != null ? budget - logged : null;
                         const isExpanded = expandedTaskId === t.id;
@@ -2154,14 +2174,23 @@ export default function ProjectDetailPage() {
                                   {!hasPerPersonData && (
                                     <span className="w-4 inline-block" />
                                   )}
-                                  {t.name}
+                                  <span>{t.name}</span>
+                                  {!t.countsTowardBudget && (
+                                    <span className="rounded bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                      Budget exempt
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-2.5 text-right tabular-nums">
                                 {logged.toFixed(2)}
                               </td>
                               <td className="px-4 py-2.5 text-right tabular-nums">
-                                {budget != null ? budget.toFixed(2) : "—"}
+                                {t.countsTowardBudget
+                                  ? budget != null
+                                    ? budget.toFixed(2)
+                                    : "—"
+                                  : "Excluded"}
                               </td>
                               <td
                                 className={`px-4 py-2.5 text-right tabular-nums font-medium ${
@@ -2170,7 +2199,9 @@ export default function ProjectDetailPage() {
                                     : ""
                                 }`}
                               >
-                                {remaining != null ? remaining.toFixed(2) : "—"}
+                                {t.countsTowardBudget && remaining != null
+                                  ? remaining.toFixed(2)
+                                  : "—"}
                               </td>
                             </tr>
                             {isExpanded && (
@@ -2366,6 +2397,9 @@ export default function ProjectDetailPage() {
                                   {tasks.map((t) => (
                                     <option key={t.id} value={t.id}>
                                       {t.name}
+                                      {!t.countsTowardBudget
+                                        ? " (budget exempt)"
+                                        : ""}
                                     </option>
                                   ))}
                                 </select>

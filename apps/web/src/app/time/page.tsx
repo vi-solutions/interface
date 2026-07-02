@@ -245,6 +245,7 @@ export default function TimePage() {
                   {tasks.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
+                      {!t.countsTowardBudget ? " (budget exempt)" : ""}
                     </option>
                   ))}
                 </select>
@@ -441,6 +442,9 @@ export default function TimePage() {
                                 {editTasks.map((t) => (
                                   <option key={t.id} value={t.id}>
                                     {t.name}
+                                    {!t.countsTowardBudget
+                                      ? " (budget exempt)"
+                                      : ""}
                                   </option>
                                 ))}
                               </select>

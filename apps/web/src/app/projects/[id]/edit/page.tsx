@@ -87,6 +87,8 @@ export default function EditProjectPage() {
     { userId: string; budgetHours: string }[]
   >([]);
   const [newTaskBudgetHours, setNewTaskBudgetHours] = useState("");
+  const [newTaskCountsTowardBudget, setNewTaskCountsTowardBudget] =
+    useState(true);
   const [taskUserBudgets, setTaskUserBudgets] = useState<
     Record<string, TaskUserBudgetWithUser[]>
   >({});
@@ -105,6 +107,8 @@ export default function EditProjectPage() {
   const [editingTaskName, setEditingTaskName] = useState("");
   const [editingTaskDescription, setEditingTaskDescription] = useState("");
   const [editingTaskBudgetHours, setEditingTaskBudgetHours] = useState("");
+  const [editingTaskCountsTowardBudget, setEditingTaskCountsTowardBudget] =
+    useState(true);
   const [savingTaskEdit, setSavingTaskEdit] = useState(false);
   const [projectUserRates, setProjectUserRates] = useState<
     ProjectUserRateWithUser[]
@@ -1048,6 +1052,7 @@ export default function EditProjectPage() {
                   setShowTaskForm((v) => !v);
                   setNewTaskUserBudgets([]);
                   setNewTaskBudgetHours("");
+                  setNewTaskCountsTowardBudget(true);
                 }}
                 className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm text-white font-medium hover:bg-emerald-700 transition-colors"
               >
@@ -1083,6 +1088,7 @@ export default function EditProjectPage() {
                     description:
                       (form.get("description") as string) || undefined,
                     budgetHours: budgetStr ? parseFloat(budgetStr) : undefined,
+                    countsTowardBudget: newTaskCountsTowardBudget,
                   };
                   try {
                     const res = await api<ApiResponse<Task>>("/tasks", {
@@ -1110,6 +1116,7 @@ export default function EditProjectPage() {
                     setShowTaskForm(false);
                     setNewTaskUserBudgets([]);
                     setNewTaskBudgetHours("");
+                    setNewTaskCountsTowardBudget(true);
                     loadTasks();
                   } catch (err) {
                     addToast(
@@ -1148,6 +1155,25 @@ export default function EditProjectPage() {
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
+                <label className="sm:col-span-2 flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={newTaskCountsTowardBudget}
+                    onChange={(e) =>
+                      setNewTaskCountsTowardBudget(e.target.checked)
+                    }
+                    className="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">
+                      Counts toward project budget
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      Turn this off for added-scope work that stays billable but
+                      should not reduce the budget.
+                    </span>
+                  </span>
+                </label>
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium mb-1">
                     Description
@@ -1330,6 +1356,19 @@ export default function EditProjectPage() {
                                     placeholder="Description (optional)"
                                     className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                   />
+                                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingTaskCountsTowardBudget}
+                                      onChange={(e) =>
+                                        setEditingTaskCountsTowardBudget(
+                                          e.target.checked,
+                                        )
+                                      }
+                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    Counts toward project budget
+                                  </label>
                                 </div>
                               ) : (
                                 <div className="flex items-start gap-2">
@@ -1359,7 +1398,14 @@ export default function EditProjectPage() {
                                     </svg>
                                   </button>
                                   <div>
-                                    <p className="font-medium">{t.name}</p>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="font-medium">{t.name}</p>
+                                      {!t.countsTowardBudget && (
+                                        <span className="rounded bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                          Budget exempt
+                                        </span>
+                                      )}
+                                    </div>
                                     {t.description && (
                                       <p className="text-xs text-gray-500 dark:text-gray-400">
                                         {t.description}
@@ -1383,9 +1429,11 @@ export default function EditProjectPage() {
                                   className="w-24 ml-auto rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 />
                               ) : (
-                                t.budgetHours != null
-                                  ? `${Number(t.budgetHours)}h`
-                                  : "—"
+                                !t.countsTowardBudget
+                                  ? "Excluded"
+                                  : t.budgetHours != null
+                                    ? `${Number(t.budgetHours)}h`
+                                    : "—"
                               )}
                             </td>
                             <td className="px-4 py-2.5 text-right">
@@ -1407,6 +1455,8 @@ export default function EditProjectPage() {
                                           budgetHours: editingTaskBudgetHours
                                             ? parseFloat(editingTaskBudgetHours)
                                             : null,
+                                          countsTowardBudget:
+                                            editingTaskCountsTowardBudget,
                                         };
                                         await api(`/tasks/${t.id}`, {
                                           method: "PUT",
@@ -1449,6 +1499,9 @@ export default function EditProjectPage() {
                                         t.budgetHours != null
                                           ? String(Number(t.budgetHours))
                                           : "",
+                                      );
+                                      setEditingTaskCountsTowardBudget(
+                                        t.countsTowardBudget,
                                       );
                                     }}
                                     className="text-gray-400 hover:text-emerald-600 transition-colors"

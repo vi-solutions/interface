@@ -14,6 +14,7 @@ import type {
   InvoiceListItem,
   InvoiceLineItem,
   InvoicePreview,
+  InvoiceRoundingSummary,
   InvoiceLineItemDto,
   CreateInvoiceDto,
 } from "@interface/shared";
@@ -45,6 +46,58 @@ export class InvoicesService {
     const codePrefix = params.projectCode ? `[${params.projectCode}] ` : "";
     const description = params.lineDescription.replace(/^Time\s+—\s+/, "");
     return `${codePrefix}${params.projectName}: ${description} (${this.formatInvoicePeriodDate(params.periodStart)} - ${this.formatInvoicePeriodDate(params.periodEnd)})`;
+  }
+
+  private async buildRoundingSummary(
+    projectId: string,
+    projectName: string,
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<InvoiceRoundingSummary> {
+    const { rows } = await this.pool.query(
+      `SELECT u.id AS user_id, u.name AS user_name,
+              SUM(te.hours) AS total_hours,
+              SUM(CEIL(te.hours * 2) / 2.0) AS total_hours_rounded
+       FROM time_entries te
+       JOIN users u ON u.id = te.user_id
+       WHERE te.project_id = $1
+         AND te.billable = true
+         AND te.date >= $2
+         AND te.date <= $3
+       GROUP BY u.id, u.name
+       ORDER BY u.name`,
+      [projectId, periodStart, periodEnd],
+    );
+
+    const employees = rows.map((row) => {
+      const rawHours = Number(row.total_hours);
+      const roundedHours = Number(row.total_hours_rounded);
+      return {
+        userId: row.user_id,
+        userName: row.user_name,
+        rawHours,
+        roundedHours,
+        roundedUpHours: roundedHours - rawHours,
+      };
+    });
+
+    const rawHours = employees.reduce(
+      (sum, employee) => sum + employee.rawHours,
+      0,
+    );
+    const roundedHours = employees.reduce(
+      (sum, employee) => sum + employee.roundedHours,
+      0,
+    );
+
+    return {
+      projectId,
+      projectName,
+      rawHours,
+      roundedHours,
+      roundedUpHours: roundedHours - rawHours,
+      employees,
+    };
   }
 
   /* ------------------------------------------------------------------ */
@@ -222,7 +275,14 @@ export class InvoicesService {
       [id],
     );
 
-    return { ...rows[0], lineItems };
+    const roundingSummary = await this.buildRoundingSummary(
+      rows[0].projectId,
+      rows[0].project.name,
+      rows[0].periodStart,
+      rows[0].periodEnd,
+    );
+
+    return { ...rows[0], lineItems, roundingSummary };
   }
 
   async create(dto: CreateInvoiceDto): Promise<InvoiceWithDetails> {

@@ -20,6 +20,7 @@ export class TasksService {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.name, t.description,
               t.budget_hours AS "budgetHours",
+              t.counts_toward_budget AS "countsTowardBudget",
               COALESCE(SUM(te.hours), 0) AS "loggedHours",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt"
        FROM tasks t
@@ -34,6 +35,7 @@ export class TasksService {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.name, t.description,
               t.budget_hours AS "budgetHours",
+              t.counts_toward_budget AS "countsTowardBudget",
               COALESCE(SUM(te.hours), 0) AS "loggedHours",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt"
        FROM tasks t
@@ -50,6 +52,7 @@ export class TasksService {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.name, t.description,
               t.budget_hours AS "budgetHours",
+              t.counts_toward_budget AS "countsTowardBudget",
               COALESCE(SUM(te.hours), 0) AS "loggedHours",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt"
        FROM tasks t
@@ -65,10 +68,11 @@ export class TasksService {
   async create(dto: CreateTaskDto): Promise<Task> {
     const id = uuid();
     const { rows } = await this.pool.query(
-      `INSERT INTO tasks (id, project_id, name, description, budget_hours)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO tasks (id, project_id, name, description, budget_hours, counts_toward_budget)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, project_id AS "projectId", name, description,
                  budget_hours AS "budgetHours",
+                 counts_toward_budget AS "countsTowardBudget",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -76,6 +80,7 @@ export class TasksService {
         dto.name,
         dto.description ?? null,
         dto.budgetHours ?? null,
+        dto.countsTowardBudget ?? true,
       ],
     );
     return rows[0];
@@ -84,16 +89,20 @@ export class TasksService {
   async update(id: string, dto: UpdateTaskDto): Promise<Task> {
     const existing = await this.findById(id);
     const { rows } = await this.pool.query(
-      `UPDATE tasks SET name = $2, description = $3, budget_hours = $4, updated_at = NOW()
+      `UPDATE tasks SET name = $2, description = $3, budget_hours = $4, counts_toward_budget = $5, updated_at = NOW()
        WHERE id = $1
        RETURNING id, project_id AS "projectId", name, description,
                  budget_hours AS "budgetHours",
+                 counts_toward_budget AS "countsTowardBudget",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
         dto.name ?? existing.name,
         dto.description !== undefined ? dto.description : existing.description,
         dto.budgetHours !== undefined ? dto.budgetHours : existing.budgetHours,
+        dto.countsTowardBudget !== undefined
+          ? dto.countsTowardBudget
+          : existing.countsTowardBudget,
       ],
     );
     return rows[0];
