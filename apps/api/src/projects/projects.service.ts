@@ -178,6 +178,13 @@ export class ProjectsService {
          p.id,
          p.name,
          json_build_object('id', c.id, 'name', c.name) AS client,
+         p.budget_cents AS "budgetCents",
+         COALESCE(SUM(
+           CASE WHEN te.billable AND COALESCE(tk.counts_toward_budget, true)
+             THEN te.hours * COALESCE(pur.hourly_rate_cents, u.rate_cents)
+             ELSE 0
+           END
+         ), 0)::bigint AS "budgetUsedCents",
          COALESCE(SUM(
            CASE WHEN te.billable
              THEN te.hours * COALESCE(pur.hourly_rate_cents, u.rate_cents)
@@ -190,11 +197,12 @@ export class ProjectsService {
        FROM projects p
        JOIN clients c ON c.id = p.client_id
        LEFT JOIN time_entries te ON te.project_id = p.id
+       LEFT JOIN tasks tk ON tk.id = te.task_id
        LEFT JOIN users u ON u.id = te.user_id
        LEFT JOIN project_user_rates pur
          ON pur.project_id = p.id AND pur.user_id = te.user_id
        WHERE p.status = 'active'
-       GROUP BY p.id, p.name, c.id, c.name
+       GROUP BY p.id, p.name, p.budget_cents, c.id, c.name
        ORDER BY p.name`,
       [BURDEN_RATE],
     );

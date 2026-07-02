@@ -28,7 +28,7 @@ export class UserExpensesService {
     const { rows } = await this.pool.query(
       `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
               ue.project_expense_id AS "projectExpenseId",
-              ue.date, ue.quantity, ue.total_cents AS "totalCents",
+              ue.date::text AS date, ue.quantity, ue.total_cents AS "totalCents",
               ue.notes, ue.receipt_url AS "receiptUrl",
               ue.qbo_expense_id AS "qboExpenseId",
               ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
@@ -50,7 +50,7 @@ export class UserExpensesService {
     const { rows } = await this.pool.query(
       `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
               ue.project_expense_id AS "projectExpenseId",
-              ue.date, ue.quantity, ue.total_cents AS "totalCents",
+              ue.date::text AS date, ue.quantity, ue.total_cents AS "totalCents",
               ue.notes, ue.receipt_url AS "receiptUrl",
               ue.qbo_expense_id AS "qboExpenseId",
               ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
@@ -104,7 +104,7 @@ export class UserExpensesService {
     const { rows } = await this.pool.query(
       `SELECT ue.id, ue.project_id AS "projectId", ue.user_id AS "userId",
               ue.project_expense_id AS "projectExpenseId",
-              ue.date, ue.quantity, ue.total_cents AS "totalCents",
+              ue.date::text AS date, ue.quantity, ue.total_cents AS "totalCents",
               ue.notes, ue.receipt_url AS "receiptUrl",
               ue.qbo_expense_id AS "qboExpenseId",
               ue.created_at AS "createdAt", ue.updated_at AS "updatedAt",
@@ -130,7 +130,7 @@ export class UserExpensesService {
     const { rows } = await this.pool.query(
       `SELECT id, project_id AS "projectId", user_id AS "userId",
               project_expense_id AS "projectExpenseId",
-              date, quantity, total_cents AS "totalCents",
+              date::text AS date, quantity, total_cents AS "totalCents",
               notes, receipt_url AS "receiptUrl",
               qbo_expense_id AS "qboExpenseId",
               created_at AS "createdAt", updated_at AS "updatedAt"
@@ -169,7 +169,7 @@ export class UserExpensesService {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
-                 date, quantity, total_cents AS "totalCents",
+                 date::text AS date, quantity, total_cents AS "totalCents",
                  notes, receipt_url AS "receiptUrl",
                  qbo_expense_id AS "qboExpenseId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
@@ -202,7 +202,7 @@ export class UserExpensesService {
        WHERE id = $1
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
-                 date, quantity, total_cents AS "totalCents",
+                 date::text AS date, quantity, total_cents AS "totalCents",
                  notes, receipt_url AS "receiptUrl",
                  qbo_expense_id AS "qboExpenseId",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,

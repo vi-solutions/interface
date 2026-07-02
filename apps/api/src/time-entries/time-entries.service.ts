@@ -83,7 +83,7 @@ export class TimeEntriesService {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
               t.task_id AS "taskId",
-              t.date, t.hours,
+              t.date::text AS date, t.hours,
               t.description, t.billable,
               ${this.lockedSelect},
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
@@ -111,7 +111,7 @@ export class TimeEntriesService {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
               t.task_id AS "taskId",
-              t.date, t.hours,
+              t.date::text AS date, t.hours,
               t.description, t.billable,
               ${this.lockedSelect},
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
@@ -130,7 +130,7 @@ export class TimeEntriesService {
     const { rows } = await this.pool.query(
       `SELECT id, project_id AS "projectId", user_id AS "userId",
               task_id AS "taskId",
-              date, hours,
+              date::text AS date, hours,
               description, billable,
               EXISTS (
                 SELECT 1 FROM invoices i
@@ -199,7 +199,7 @@ export class TimeEntriesService {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  task_id AS "taskId",
-                 date, hours,
+                 date::text AS date, hours,
                  description, billable,
                  false AS locked,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
@@ -240,7 +240,7 @@ export class TimeEntriesService {
        WHERE id = $1
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  task_id AS "taskId",
-                 date, hours,
+                 date::text AS date, hours,
                  description, billable,
                  false AS locked,
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
@@ -298,7 +298,7 @@ export class TimeEntriesService {
     const { rows } = await this.pool.query(
       `SELECT t.id, t.project_id AS "projectId", t.user_id AS "userId",
               t.task_id AS "taskId",
-              t.date, t.hours,
+              t.date::text AS date, t.hours,
               t.description, t.billable,
               ${this.lockedSelect},
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",

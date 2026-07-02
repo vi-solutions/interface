@@ -60,6 +60,10 @@ export default function EditProjectPage() {
   const [savingExpense, setSavingExpense] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editingRate, setEditingRate] = useState("");
+  const [editingExpenseNameId, setEditingExpenseNameId] = useState<
+    string | null
+  >(null);
+  const [editingExpenseName, setEditingExpenseName] = useState("");
   const [globalExpenses, setGlobalExpenses] = useState<Expense[]>([]);
   const [expenseMode, setExpenseMode] = useState<"existing" | "custom">(
     "existing",
@@ -693,7 +697,77 @@ export default function EditProjectPage() {
                         key={pe.id}
                         className="border-b border-gray-100 dark:border-gray-700/50 last:border-0"
                       >
-                        <td className="px-4 py-2.5 font-medium">{pe.name}</td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {editingExpenseNameId === pe.id ? (
+                            <input
+                              type="text"
+                              autoFocus
+                              value={editingExpenseName}
+                              onChange={(e) =>
+                                setEditingExpenseName(e.target.value)
+                              }
+                              onKeyDown={async (e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingExpenseNameId(null);
+                                  setEditingExpenseName("");
+                                }
+                              }}
+                              onBlur={async () => {
+                                const nextName = editingExpenseName.trim();
+                                if (!nextName || nextName === pe.name) {
+                                  setEditingExpenseNameId(null);
+                                  setEditingExpenseName("");
+                                  return;
+                                }
+                                try {
+                                  await api<ApiResponse<ProjectExpense>>(
+                                    `/project-expenses/${pe.id}`,
+                                    {
+                                      method: "PUT",
+                                      body: JSON.stringify({
+                                        name: nextName,
+                                      }),
+                                    },
+                                  );
+                                  addToast("Expense name updated");
+                                  loadProjectExpenses();
+                                } catch {
+                                  addToast(
+                                    "Failed to update expense name",
+                                    "error",
+                                  );
+                                }
+                                setEditingExpenseNameId(null);
+                                setEditingExpenseName("");
+                              }}
+                              className="w-full max-w-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingExpenseNameId(pe.id);
+                                setEditingExpenseName(pe.name);
+                              }}
+                              className="inline-flex items-center gap-1.5 text-left hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                              title="Click to edit expense name"
+                            >
+                              {pe.name}
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 16 16"
+                                fill="currentColor"
+                                className="h-3 w-3 opacity-40"
+                              >
+                                <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.22 10.303a1 1 0 0 0-.258.46l-.67 2.68a.75.75 0 0 0 .915.915l2.68-.67a1 1 0 0 0 .46-.258l7.79-7.793a1.75 1.75 0 0 0 0-2.475l-.649-.649Z" />
+                              </svg>
+                            </button>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300 capitalize">
                           {pe.type.replace("_", " ")}
                         </td>

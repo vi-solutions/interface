@@ -155,19 +155,30 @@ export default function Home() {
           </div>
         )}
 
-        {/* Projects Over Financial Budget (labor cost > revenue) */}
+        {/* Projects Over Dollar Budget */}
         {user?.isAdmin && (() => {
           const overFinancial = financialSummaries
-            .filter((p) => p.laborCostCents > p.revenueCents)
-            .sort((a, b) => (b.laborCostCents - b.revenueCents) - (a.laborCostCents - a.revenueCents));
+            .filter(
+              (p) =>
+                p.budgetCents != null &&
+                Number(p.budgetCents) > 0 &&
+                Number(p.budgetUsedCents) > Number(p.budgetCents),
+            )
+            .sort(
+              (a, b) =>
+                Number(b.budgetUsedCents) / Number(b.budgetCents) -
+                Number(a.budgetUsedCents) / Number(a.budgetCents),
+            );
           if (overFinancial.length === 0) return null;
           return (
             <div className="mb-6">
-              <h2 className="text-lg font-semibold mb-3">Projects Over Budget</h2>
+              <h2 className="text-lg font-semibold mb-3">Projects Over Dollar Budget</h2>
               <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 overflow-hidden">
                 {overFinancial.map((p, i) => {
-                  const ratio = p.revenueCents > 0 ? p.laborCostCents / p.revenueCents : 2;
-                  const overBy = p.laborCostCents - p.revenueCents;
+                  const budgetCents = Number(p.budgetCents);
+                  const usedCents = Number(p.budgetUsedCents);
+                  const ratio = budgetCents > 0 ? usedCents / budgetCents : 2;
+                  const overBy = usedCents - budgetCents;
                   return (
                     <div
                       key={p.id}
@@ -193,7 +204,7 @@ export default function Home() {
                         </div>
                       </div>
                       <p className="text-sm tabular-nums text-red-600 dark:text-red-400 font-medium shrink-0">
-                        +${(overBy / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} over
+                        ${(overBy / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} over
                       </p>
                     </div>
                   );

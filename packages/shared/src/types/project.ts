@@ -66,6 +66,8 @@ export interface ProjectFinancialSummary {
   id: string;
   name: string;
   client: { id: string; name: string };
+  budgetCents: number | null;
+  budgetUsedCents: number;
   revenueCents: number;
   laborCostCents: number;
 }

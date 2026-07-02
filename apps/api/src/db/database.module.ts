@@ -1,7 +1,10 @@
 import { Module, Global } from "@nestjs/common";
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 
 export const DATABASE_POOL = "DATABASE_POOL";
+const POSTGRES_DATE_OID = 1082;
+
+types.setTypeParser(POSTGRES_DATE_OID, (value) => value);
 
 const poolProvider = {
   provide: DATABASE_POOL,
