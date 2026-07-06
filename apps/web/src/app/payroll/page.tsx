@@ -49,14 +49,31 @@ function recentPeriods(): { label: string; start: string; end: string }[] {
     const y = d.getFullYear();
     const m = d.getMonth();
     const monthLabel = d.toLocaleDateString("en-CA", {
-      month: "short",
+      month: "long",
       year: "numeric",
     });
-    periods.push({
-      label: monthLabel,
-      start: fmt(new Date(y, m, 1)),
-      end: fmt(new Date(y, m + 1, 0)),
-    });
+    const monthStart = fmt(new Date(y, m, 1));
+    const monthMiddle = fmt(new Date(y, m, 15));
+    const secondHalfStart = fmt(new Date(y, m, 16));
+    const monthEnd = fmt(new Date(y, m + 1, 0));
+
+    periods.push(
+      {
+        label: `${monthLabel}: 1-15`,
+        start: monthStart,
+        end: monthMiddle,
+      },
+      {
+        label: `${monthLabel}: 16-end`,
+        start: secondHalfStart,
+        end: monthEnd,
+      },
+      {
+        label: `${monthLabel}: full month`,
+        start: monthStart,
+        end: monthEnd,
+      },
+    );
   }
   return periods;
 }
