@@ -38,6 +38,7 @@ export class TimeEntriesController {
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
     @Query("roundUpIncrementHours") roundUpIncrementHours?: string,
+    @Query("all") all?: string,
     @Req() req?: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<TimeEntryWithUser | TimeEntryWithDetails>> {
     if (projectId) {
@@ -53,6 +54,7 @@ export class TimeEntriesController {
       startDate,
       endDate,
       userId: effectiveUserId,
+      limit: all === "true" ? null : undefined,
       roundUpIncrementHours:
         roundUpIncrement !== undefined && Number.isFinite(roundUpIncrement)
           ? roundUpIncrement

@@ -3,10 +3,11 @@ import {
   Get,
   Post,
   Put,
-  Delete,
   Param,
   Body,
   Req,
+  ForbiddenException,
+  Query,
 } from "@nestjs/common";
 import { Request } from "express";
 import { ClientsService } from "./clients.service";
@@ -27,9 +28,10 @@ export class ClientsController {
   async findAll(
     @Req()
     req: Request & { user: { sub: string; role: string; isAdmin: boolean } },
+    @Query("includeArchived") includeArchived?: string,
   ): Promise<ApiListResponse<ClientWithPrimaryContact>> {
     if (req.user.isAdmin) {
-      const data = await this.clientsService.findAll();
+      const data = await this.clientsService.findAll(includeArchived === "true");
       return { data, total: data.length };
     }
     if (req.user.role === "employee") {
@@ -58,8 +60,23 @@ export class ClientsController {
     return { data: await this.clientsService.update(id, dto) };
   }
 
-  @Delete(":id")
-  async remove(@Param("id") id: string): Promise<void> {
-    await this.clientsService.remove(id);
+  @Put(":id/archive")
+  async archive(
+    @Param("id") id: string,
+    @Req() req: Request & { user: { isAdmin: boolean } },
+  ): Promise<void> {
+    if (!req.user.isAdmin)
+      throw new ForbiddenException("Admin access required");
+    await this.clientsService.archive(id);
+  }
+
+  @Put(":id/restore")
+  async restore(
+    @Param("id") id: string,
+    @Req() req: Request & { user: { isAdmin: boolean } },
+  ): Promise<void> {
+    if (!req.user.isAdmin)
+      throw new ForbiddenException("Admin access required");
+    await this.clientsService.restore(id);
   }
 }

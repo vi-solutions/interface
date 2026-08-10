@@ -137,12 +137,32 @@ function basisRoundIncrement(basis: ReportBasis) {
   return null;
 }
 
-function exportCsv(
+function csvCell(value: string | number) {
+  let text = String(value);
+  // Prevent spreadsheet applications from interpreting user-entered text as a formula.
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(rows: Array<Array<string | number>>, filename: string) {
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportSummaryCsv(
   grouped: ReturnType<typeof groupByEmployee>,
   periodStart: string,
   periodEnd: string,
 ) {
-  const rows: string[][] = [["Employee", "Project", "Hours"]];
+  const rows: Array<Array<string | number>> = [
+    ["Employee", "Project", "Hours"],
+  ];
   for (const emp of grouped) {
     for (const proj of emp.projects) {
       rows.push([emp.name, proj.name, proj.hours.toFixed(2)]);
@@ -150,16 +170,36 @@ function exportCsv(
     rows.push([emp.name, "TOTAL", emp.totalHours.toFixed(2)]);
     rows.push([]);
   }
-  const csv = rows
-    .map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `payroll-${periodStart}-${periodEnd}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(rows, `payroll-summary-${periodStart}-${periodEnd}.csv`);
+}
+
+function exportDetailedCsv(
+  entries: TimeEntryWithDetails[],
+  periodStart: string,
+  periodEnd: string,
+) {
+  const rows: Array<Array<string | number>> = [
+    ["Employee", "Date", "Project", "Task", "Hours", "Billable", "Notes"],
+  ];
+  const sorted = [...entries].sort(
+    (a, b) =>
+      a.user.name.localeCompare(b.user.name) ||
+      a.date.localeCompare(b.date) ||
+      a.project.name.localeCompare(b.project.name) ||
+      (a.task?.name ?? "").localeCompare(b.task?.name ?? ""),
+  );
+  for (const entry of sorted) {
+    rows.push([
+      entry.user.name,
+      entry.date,
+      entry.project.name,
+      entry.task?.name ?? "No task",
+      Number(entry.hours).toFixed(2),
+      entry.billable ? "Yes" : "No",
+      entry.description ?? "",
+    ]);
+  }
+  downloadCsv(rows, `payroll-detailed-${periodStart}-${periodEnd}.csv`);
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -353,9 +393,19 @@ export default function PayrollPage() {
                   )}
                   <Button
                     variant="secondary"
-                    onClick={() => exportCsv(grouped, periodStart, periodEnd)}
+                    onClick={() =>
+                      exportSummaryCsv(grouped, periodStart, periodEnd)
+                    }
                   >
-                    Export CSV
+                    Export summary CSV
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      exportDetailedCsv(entries, periodStart, periodEnd)
+                    }
+                  >
+                    Export detailed CSV
                   </Button>
                 </div>
               </div>

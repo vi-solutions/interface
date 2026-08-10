@@ -29,6 +29,8 @@ export default function TimePage() {
   const { addToast } = useToast();
 
   const [entries, setEntries] = useState<TimeEntryWithDetails[]>([]);
+  const [viewingAll, setViewingAll] = useState(false);
+  const [loadingEntries, setLoadingEntries] = useState(false);
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -47,10 +49,13 @@ export default function TimePage() {
   } | null>(null);
 
   const loadEntries = useCallback(() => {
-    api<ApiListResponse<TimeEntryWithDetails>>("/time-entries")
+    setLoadingEntries(true);
+    const query = viewingAll ? "?all=true" : "";
+    api<ApiListResponse<TimeEntryWithDetails>>(`/time-entries${query}`)
       .then((res) => setEntries(res.data))
-      .catch(() => {});
-  }, []);
+      .catch(() => {})
+      .finally(() => setLoadingEntries(false));
+  }, [viewingAll]);
 
   useEffect(() => {
     if (!authenticated || !currentUser) return;
@@ -228,6 +233,7 @@ export default function TimePage() {
                 <option value="">Select project…</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
+                    {p.code ? `[${p.code}] ` : ""}
                     {p.name}
                   </option>
                 ))}
@@ -337,6 +343,26 @@ export default function TimePage() {
           </div>
         </form>
 
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {viewingAll
+              ? `Showing all ${entries.length} entries`
+              : `Showing ${entries.length} most recent entries`}
+          </p>
+          <button
+            type="button"
+            disabled={loadingEntries}
+            onClick={() => setViewingAll((value) => !value)}
+            className="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            {loadingEntries
+              ? "Loading…"
+              : viewingAll
+                ? "Show recent"
+                : "View all history"}
+          </button>
+        </div>
+
         {/* ── Entries grouped by date ── */}
         {entries.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-12">
@@ -398,6 +424,7 @@ export default function TimePage() {
                               >
                                 {projects.map((p) => (
                                   <option key={p.id} value={p.id}>
+                                    {p.code ? `[${p.code}] ` : ""}
                                     {p.name}
                                   </option>
                                 ))}

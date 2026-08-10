@@ -4,6 +4,7 @@ export interface Client {
   address: string | null;
   notes: string | null;
   qboCustomerId: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

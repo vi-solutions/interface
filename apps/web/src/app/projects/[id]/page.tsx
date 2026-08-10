@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
   ApiResponse,
@@ -68,6 +68,7 @@ export default function ProjectDetailPage() {
   const { user: currentUser } = useAuth();
   const { addToast } = useToast();
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [project, setProject] = useState<ProjectWithClient | null>(null);
   const [availableProjects, setAvailableProjects] = useState<
     ProjectWithClient[]
@@ -75,6 +76,7 @@ export default function ProjectDetailPage() {
   const [entries, setEntries] = useState<TimeEntryWithUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [archivingProject, setArchivingProject] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
@@ -120,6 +122,46 @@ export default function ProjectDetailPage() {
     description: string;
     billable: boolean;
   } | null>(null);
+
+  async function handleArchiveProject() {
+    if (!project) return;
+    if (
+      !window.confirm(
+        `Archive project "${project.name}"? Historical records will be preserved.`,
+      )
+    ) {
+      return;
+    }
+
+    setArchivingProject(true);
+    try {
+      await api(`/projects/${project.id}/archive`, { method: "PUT" });
+      addToast("Project archived");
+      router.push("/projects");
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to archive project",
+        "error",
+      );
+      setArchivingProject(false);
+    }
+  }
+
+  async function handleRestoreProject() {
+    if (!project) return;
+    setArchivingProject(true);
+    try {
+      await api(`/projects/${project.id}/restore`, { method: "PUT" });
+      addToast("Project restored");
+      router.push("/projects");
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to restore project",
+        "error",
+      );
+      setArchivingProject(false);
+    }
+  }
 
   const loadEntries = useCallback(() => {
     api<ApiListResponse<TimeEntryWithUser>>(`/time-entries?projectId=${id}`)
@@ -660,12 +702,32 @@ export default function ProjectDetailPage() {
               </div>
               <div className="flex items-center gap-3">
                 {currentUser?.isAdmin && (
-                  <Link
-                    href={`/projects/${id}/edit`}
-                    className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Edit
-                  </Link>
+                  <>
+                    <Link
+                      href={`/projects/${id}/edit`}
+                      className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={
+                        project.status === "archived"
+                          ? handleRestoreProject
+                          : handleArchiveProject
+                      }
+                      disabled={archivingProject}
+                      className="rounded-lg border border-red-300 dark:border-red-800 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                    >
+                      {archivingProject
+                        ? project.status === "archived"
+                          ? "Restoring…"
+                          : "Archiving…"
+                        : project.status === "archived"
+                          ? "Restore"
+                          : "Archive"}
+                    </button>
+                  </>
                 )}
                 <span className="rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-xs font-medium px-3 py-1">
                   {project.status}
@@ -2529,6 +2591,7 @@ export default function ProjectDetailPage() {
                                         <option value="">Move to...</option>
                                         {moveProjects.map((p) => (
                                           <option key={p.id} value={p.id}>
+                                            {p.code ? `[${p.code}] ` : ""}
                                             {p.name}
                                           </option>
                                         ))}
@@ -2595,21 +2658,10 @@ export default function ProjectDetailPage() {
                                       {canManageEntry && (
                                         <button
                                           onClick={() => startMoveEntry(entry)}
-                                          className="text-gray-400 hover:text-emerald-600 transition-colors"
+                                          className="rounded border border-gray-300 dark:border-gray-600 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:border-emerald-500 hover:text-emerald-600 transition-colors"
                                           aria-label="Move entry"
                                         >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                            fill="currentColor"
-                                            className="h-4 w-4"
-                                          >
-                                            <path
-                                              fillRule="evenodd"
-                                              d="M3 10a.75.75 0 0 1 .75-.75h10.69l-3.22-3.22a.75.75 0 1 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H3.75A.75.75 0 0 1 3 10Z"
-                                              clipRule="evenodd"
-                                            />
-                                          </svg>
+                                          Move
                                         </button>
                                       )}
                                     </>

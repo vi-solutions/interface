@@ -1,4 +1,8 @@
-import { Injectable, Inject, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+} from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
@@ -13,10 +17,11 @@ import type {
 export class ClientsService {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
-  async findAll(): Promise<ClientWithPrimaryContact[]> {
+  async findAll(includeArchived = false): Promise<ClientWithPrimaryContact[]> {
     const { rows } = await this.pool.query(
       `SELECT c.id, c.name, c.address, c.notes,
               c.qbo_customer_id AS "qboCustomerId",
+              c.archived_at AS "archivedAt",
               c.created_at AS "createdAt", c.updated_at AS "updatedAt",
               CASE WHEN pc.id IS NOT NULL
                 THEN json_build_object('id', pc.id, 'name', pc.name, 'email', pc.email, 'title', pc.title)
@@ -30,7 +35,9 @@ export class ClientsService {
          ORDER BY created_at DESC
          LIMIT 1
        ) pc ON true
+       WHERE ($1::boolean = TRUE OR c.archived_at IS NULL)
        ORDER BY c.name`,
+      [includeArchived],
     );
     return rows;
   }
@@ -39,6 +46,7 @@ export class ClientsService {
     const { rows } = await this.pool.query(
       `SELECT DISTINCT ON (c.id) c.id, c.name, c.address, c.notes,
               c.qbo_customer_id AS "qboCustomerId",
+              c.archived_at AS "archivedAt",
               c.created_at AS "createdAt", c.updated_at AS "updatedAt",
               CASE WHEN pc.id IS NOT NULL
                 THEN json_build_object('id', pc.id, 'name', pc.name, 'email', pc.email, 'title', pc.title)
@@ -54,6 +62,7 @@ export class ClientsService {
          ORDER BY created_at DESC
          LIMIT 1
        ) pc ON true
+       WHERE c.archived_at IS NULL AND p.status != 'archived'
        ORDER BY c.id, c.name`,
       [userId],
     );
@@ -64,6 +73,7 @@ export class ClientsService {
     const { rows } = await this.pool.query(
       `SELECT id, name, address, notes,
               qbo_customer_id AS "qboCustomerId",
+              archived_at AS "archivedAt",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM clients WHERE id = $1`,
       [id],
@@ -79,6 +89,7 @@ export class ClientsService {
        VALUES ($1, $2, $3, $4)
        RETURNING id, name, address, notes,
                  qbo_customer_id AS "qboCustomerId",
+                 archived_at AS "archivedAt",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [id, dto.name, dto.address ?? null, dto.notes ?? null],
     );
@@ -92,6 +103,7 @@ export class ClientsService {
        WHERE id = $1
        RETURNING id, name, address, notes,
                  qbo_customer_id AS "qboCustomerId",
+                 archived_at AS "archivedAt",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
@@ -112,6 +124,7 @@ export class ClientsService {
        WHERE id = $1
        RETURNING id, name, address, notes,
                  qbo_customer_id AS "qboCustomerId",
+                 archived_at AS "archivedAt",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [id, qboCustomerId],
     );
@@ -119,10 +132,43 @@ export class ClientsService {
     return rows[0];
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.pool.query("DELETE FROM clients WHERE id = $1", [
-      id,
-    ]);
-    if (result.rowCount === 0) throw new NotFoundException("Client not found");
+  async archive(id: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(
+        `UPDATE clients
+         SET archived_at = NOW(), updated_at = NOW()
+         WHERE id = $1 AND archived_at IS NULL`,
+        [id],
+      );
+      if (result.rowCount === 0) {
+        throw new NotFoundException("Client not found or already archived");
+      }
+      await client.query(
+        `UPDATE projects
+         SET status_before_archive = status, status = 'archived', updated_at = NOW()
+         WHERE client_id = $1 AND status != 'archived'`,
+        [id],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async restore(id: string): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE clients
+       SET archived_at = NULL, updated_at = NOW()
+       WHERE id = $1 AND archived_at IS NOT NULL`,
+      [id],
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundException("Client not found or not archived");
+    }
   }
 }

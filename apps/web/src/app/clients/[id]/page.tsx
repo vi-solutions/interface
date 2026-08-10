@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
   ApiResponse,
@@ -23,6 +23,7 @@ export default function ClientDetailPage() {
   const { authenticated } = useRequireAuth();
   const { user: currentUser } = useAuth();
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { addToast } = useToast();
   const [client, setClient] = useState<Client | null>(null);
   const [projects, setProjects] = useState<ProjectWithClient[]>([]);
@@ -35,6 +36,7 @@ export default function ClientDetailPage() {
   const [editingEmail, setEditingEmail] = useState("");
   const [editingPhone, setEditingPhone] = useState("");
   const [editingTitle, setEditingTitle] = useState("");
+  const [archiving, setArchiving] = useState(false);
 
   /* QBO linking state */
   const [qboConnected, setQboConnected] = useState(false);
@@ -134,6 +136,47 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function handleArchiveClient() {
+    if (!client) return;
+    if (
+      !window.confirm(
+        `Archive client "${client.name}" and all of its projects? Historical records will be preserved.`,
+      )
+    ) {
+      return;
+    }
+
+    setArchiving(true);
+    try {
+      await api(`/clients/${client.id}/archive`, { method: "PUT" });
+      addToast("Client archived");
+      router.push("/clients");
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to archive client",
+        "error",
+      );
+      setArchiving(false);
+    }
+  }
+
+  async function handleRestoreClient() {
+    if (!client) return;
+    setArchiving(true);
+    try {
+      await api(`/clients/${client.id}/restore`, { method: "PUT" });
+      addToast("Client restored. Restore projects individually as needed.");
+      setClient({ ...client, archivedAt: null });
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to restore client",
+        "error",
+      );
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   async function handleQboSearch() {
     setQboSearching(true);
     try {
@@ -208,12 +251,32 @@ export default function ClientDetailPage() {
             <div className="flex items-center justify-between mb-8">
               <h1 className="text-2xl font-bold">{client.name}</h1>
               {currentUser?.isAdmin && (
-                <Link
-                  href={`/clients/${id}/edit`}
-                  className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Edit
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/clients/${id}/edit`}
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Edit
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={
+                      client.archivedAt
+                        ? handleRestoreClient
+                        : handleArchiveClient
+                    }
+                    disabled={archiving}
+                    className="rounded-lg border border-red-300 dark:border-red-800 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                  >
+                    {archiving
+                      ? client.archivedAt
+                        ? "Restoring…"
+                        : "Archiving…"
+                      : client.archivedAt
+                        ? "Restore"
+                        : "Archive"}
+                  </button>
+                </div>
               )}
             </div>
 

@@ -1,4 +1,8 @@
-import { Injectable, Inject, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+} from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
 import { DATABASE_POOL } from "../db/database.module";
@@ -42,7 +46,7 @@ export class ProjectsService {
     return `${prefix}${nextIndex}`;
   }
 
-  async findAll(): Promise<ProjectWithClient[]> {
+  async findAll(includeArchived = false): Promise<ProjectWithClient[]> {
     const { rows } = await this.pool.query(
       `SELECT p.id, p.client_id AS "clientId", p.name, p.code, p.description, p.status, p.phase,
               p.start_date AS "startDate", p.end_date AS "endDate",
@@ -55,7 +59,9 @@ export class ProjectsService {
        FROM projects p
        JOIN clients c ON c.id = p.client_id
        LEFT JOIN users pm ON pm.id = p.project_manager_id
+       WHERE ($1::boolean = TRUE OR (p.status != 'archived' AND c.archived_at IS NULL))
        ORDER BY p.updated_at DESC`,
+      [includeArchived],
     );
     return rows;
   }
@@ -93,8 +99,10 @@ export class ProjectsService {
        FROM projects p
        JOIN clients c ON c.id = p.client_id
        LEFT JOIN users pm ON pm.id = p.project_manager_id
-       WHERE p.project_manager_id = $1
-          OR p.id IN (SELECT project_id FROM project_user_rates WHERE user_id = $1)
+       WHERE p.status != 'archived'
+         AND c.archived_at IS NULL
+         AND (p.project_manager_id = $1
+          OR p.id IN (SELECT project_id FROM project_user_rates WHERE user_id = $1))
        ORDER BY p.updated_at DESC`,
       [userId],
     );
@@ -164,11 +172,36 @@ export class ProjectsService {
     return rows[0];
   }
 
-  async remove(id: string): Promise<void> {
-    const result = await this.pool.query("DELETE FROM projects WHERE id = $1", [
-      id,
-    ]);
-    if (result.rowCount === 0) throw new NotFoundException("Project not found");
+  async archive(id: string): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE projects
+       SET status_before_archive = status, status = 'archived', updated_at = NOW()
+       WHERE id = $1 AND status != 'archived'`,
+      [id],
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundException("Project not found or already archived");
+    }
+  }
+
+  async restore(id: string): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE projects p
+       SET status = COALESCE(p.status_before_archive, 'draft'),
+           status_before_archive = NULL,
+           updated_at = NOW()
+       FROM clients c
+       WHERE p.id = $1
+         AND p.client_id = c.id
+         AND p.status = 'archived'
+         AND c.archived_at IS NULL`,
+      [id],
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundException(
+        "Project not found, not archived, or its client is still archived",
+      );
+    }
   }
 
   async findFinancialSummaries(): Promise<ProjectFinancialSummary[]> {

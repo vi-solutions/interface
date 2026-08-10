@@ -41,7 +41,7 @@ export class TimeEntriesService {
 
   async findRecent(
     opts: {
-      limit?: number;
+      limit?: number | null;
       startDate?: string;
       endDate?: string;
       userId?: string;
@@ -76,7 +76,7 @@ export class TimeEntriesService {
 
     // Only apply row limit when no date range is specified
     const limitClause =
-      !startDate && !endDate
+      limit != null && !startDate && !endDate
         ? `LIMIT $${params.push(limit) && params.length}`
         : "";
 
