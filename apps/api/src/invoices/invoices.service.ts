@@ -17,6 +17,7 @@ import type {
   InvoiceRoundingSummary,
   InvoiceLineItemDto,
   CreateInvoiceDto,
+  UpdateInvoiceDto,
 } from "@interface/shared";
 
 @Injectable()
@@ -391,6 +392,121 @@ export class InvoicesService {
     }
 
     return this.findById(invoiceId);
+  }
+
+  async update(
+    id: string,
+    dto: UpdateInvoiceDto,
+  ): Promise<InvoiceWithDetails> {
+    const { rows } = await this.pool.query(
+      `SELECT i.project_id, i.period_start, i.period_end, i.status,
+              i.qbo_invoice_id, p.name AS project_name, p.code AS project_code,
+              c.qbo_customer_id
+       FROM invoices i
+       JOIN projects p ON p.id = i.project_id
+       JOIN clients c ON c.id = p.client_id
+       WHERE i.id = $1`,
+      [id],
+    );
+    const invoice = rows[0];
+    if (!invoice) throw new NotFoundException("Invoice not found");
+    if (invoice.status === "void") {
+      throw new BadRequestException("Voided invoices cannot be edited.");
+    }
+    if (!Array.isArray(dto.lineItems) || dto.lineItems.length === 0) {
+      throw new BadRequestException("An invoice must have at least one line item.");
+    }
+
+    const lineItems = dto.lineItems.map((li) => ({
+      ...li,
+      quantity:
+        li.type === "time"
+          ? this.roundUpToHalfHour(Number(li.quantity))
+          : Number(li.quantity),
+      unitCents: Number(li.unitCents),
+    }));
+    if (
+      lineItems.some(
+        (li) =>
+          !li.description?.trim() ||
+          !Number.isFinite(li.quantity) ||
+          li.quantity <= 0 ||
+          !Number.isFinite(li.unitCents) ||
+          li.unitCents < 0,
+      )
+    ) {
+      throw new BadRequestException("Invoice line items are invalid.");
+    }
+
+    const totalCents = lineItems.reduce(
+      (sum, li) => sum + Math.round(li.quantity * li.unitCents),
+      0,
+    );
+
+    if (invoice.qbo_invoice_id) {
+      if (!invoice.qbo_customer_id) {
+        throw new BadRequestException(
+          "This project's client is not linked to a QuickBooks customer.",
+        );
+      }
+      await this.qbo.updateInvoice(invoice.qbo_invoice_id, {
+        customerRef: invoice.qbo_customer_id,
+        txnDate: String(invoice.period_end).slice(0, 10),
+        dueDate: dto.dueDate || undefined,
+        memo: dto.notes || undefined,
+        lineItems: lineItems.map((li) => ({
+          description: this.formatQboLineDescription({
+            projectCode: invoice.project_code,
+            projectName: invoice.project_name,
+            lineDescription: li.description,
+            periodStart: String(invoice.period_start).slice(0, 10),
+            periodEnd: String(invoice.period_end).slice(0, 10),
+          }),
+          quantity: li.quantity,
+          unitCents: li.unitCents,
+        })),
+      });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `UPDATE invoices
+         SET notes = $2, due_date = $3, total_cents = $4, updated_at = NOW()
+         WHERE id = $1`,
+        [id, dto.notes || null, dto.dueDate || null, totalCents],
+      );
+      await client.query("DELETE FROM invoice_line_items WHERE invoice_id = $1", [
+        id,
+      ]);
+      for (let i = 0; i < lineItems.length; i++) {
+        const li = lineItems[i];
+        await client.query(
+          `INSERT INTO invoice_line_items
+             (id, invoice_id, type, description, quantity, unit_cents, total_cents, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            uuid(),
+            id,
+            li.type,
+            li.description.trim(),
+            li.quantity,
+            li.unitCents,
+            Math.round(li.quantity * li.unitCents),
+            i,
+          ],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    return this.findById(id);
   }
 
   async remove(id: string): Promise<void> {

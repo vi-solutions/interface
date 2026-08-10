@@ -67,6 +67,7 @@ export default function EditUserPage() {
       name: form.get("name") as string,
       email: form.get("email") as string,
       role: (form.get("role") as UserRole) || undefined,
+      active: form.get("active") === "on",
       rateCents: rateStr ? Math.round(parseFloat(rateStr) * 100) : 0,
       dailyRateCents: dailyStr ? Math.round(parseFloat(dailyStr) * 100) : 0,
       hourlyCostCents: costStr ? Math.round(parseFloat(costStr) * 100) : 0,
@@ -205,6 +206,23 @@ export default function EditUserPage() {
                 </p>
               )}
             </FormField>
+
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="active"
+                  defaultChecked={user.active}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>
+                  <span className="block text-sm font-medium">Active</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Active employees and contractors receive daily time-entry reminders.
+                  </span>
+                </span>
+              </label>
+            </div>
 
             <div className="flex gap-3 pt-2">
               <Button type="submit" disabled={saving}>

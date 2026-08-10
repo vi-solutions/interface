@@ -22,6 +22,7 @@ import { InvoicesModule } from "./invoices/invoices.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { PayPeriodLocksModule } from "./pay-period-locks/pay-period-locks.module";
 import { AuthGuard } from "./auth/auth.guard";
+import { TimeRemindersModule } from "./time-reminders/time-reminders.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AuthGuard } from "./auth/auth.guard";
     InvoicesModule,
     WebhooksModule,
     PayPeriodLocksModule,
+    TimeRemindersModule,
   ],
   providers: [{ provide: APP_GUARD, useExisting: AuthGuard }],
 })

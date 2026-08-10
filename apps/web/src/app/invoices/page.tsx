@@ -680,7 +680,7 @@ export default function InvoicesPage() {
                     Status
                   </th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500 dark:text-gray-400">
-                    QBO
+                    QBO Invoice
                   </th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -713,11 +713,16 @@ export default function InvoicesPage() {
                     </td>
                     <td className="px-5 py-3">
                       {inv.qboInvoiceId ? (
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400">
-                          ✓ Synced
-                        </span>
+                        <div>
+                          <span className="block text-sm font-medium tabular-nums">
+                            #{inv.qboInvoiceId}
+                          </span>
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                            ✓ Synced
+                          </span>
+                        </div>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-gray-400">Not synced</span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">

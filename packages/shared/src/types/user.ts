@@ -6,6 +6,7 @@ export interface User {
   name: string;
   role: UserRole;
   isAdmin: boolean;
+  active: boolean;
   rateCents: number;
   dailyRateCents: number;
   hourlyCostCents: number;
@@ -19,6 +20,7 @@ export interface CreateUserDto {
   password: string;
   role?: UserRole;
   isAdmin?: boolean;
+  active?: boolean;
   rateCents?: number;
   dailyRateCents?: number;
   hourlyCostCents?: number;
@@ -29,6 +31,7 @@ export interface UpdateUserDto {
   email?: string;
   role?: UserRole;
   isAdmin?: boolean;
+  active?: boolean;
   rateCents?: number;
   dailyRateCents?: number;
   hourlyCostCents?: number;

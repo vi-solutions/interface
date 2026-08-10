@@ -13,6 +13,7 @@ interface UserRow {
   name: string;
   role: UserRole;
   is_admin: boolean;
+  active: boolean;
   password_hash: string;
   created_at: string;
   updated_at: string;
@@ -24,7 +25,7 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     const { rows } = await this.pool.query(
-      `SELECT id, email, name, role, is_admin AS "isAdmin",
+      `SELECT id, email, name, role, is_admin AS "isAdmin", active,
               rate_cents AS "rateCents",
               daily_rate_cents AS "dailyRateCents",
               hourly_cost_cents AS "hourlyCostCents",
@@ -36,7 +37,7 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<UserRow | null> {
     const { rows } = await this.pool.query(
-      `SELECT id, email, name, role, is_admin, password_hash,
+      `SELECT id, email, name, role, is_admin, active, password_hash,
               created_at AS "created_at", updated_at AS "updated_at"
        FROM users WHERE email = $1`,
       [email],
@@ -46,7 +47,7 @@ export class UsersService {
 
   async findById(id: string): Promise<User> {
     const { rows } = await this.pool.query(
-      `SELECT id, email, name, role, is_admin AS "isAdmin",
+      `SELECT id, email, name, role, is_admin AS "isAdmin", active,
               rate_cents AS "rateCents",
               daily_rate_cents AS "dailyRateCents",
               hourly_cost_cents AS "hourlyCostCents",
@@ -60,7 +61,7 @@ export class UsersService {
 
   async findByIdWithHash(id: string): Promise<UserRow | null> {
     const { rows } = await this.pool.query(
-      `SELECT id, email, name, role, is_admin, password_hash,
+      `SELECT id, email, name, role, is_admin, active, password_hash,
               created_at AS "created_at", updated_at AS "updated_at"
        FROM users WHERE id = $1`,
       [id],
@@ -83,7 +84,7 @@ export class UsersService {
     const { rows } = await this.pool.query(
       `INSERT INTO users (id, email, name, password_hash, role, is_admin, rate_cents, daily_rate_cents, hourly_cost_cents)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, email, name, role, is_admin AS "isAdmin",
+       RETURNING id, email, name, role, is_admin AS "isAdmin", active,
                  rate_cents AS "rateCents",
                  daily_rate_cents AS "dailyRateCents",
                  hourly_cost_cents AS "hourlyCostCents",
@@ -122,6 +123,7 @@ export class UsersService {
       email?: string;
       role?: UserRole;
       isAdmin?: boolean;
+      active?: boolean;
       rateCents?: number;
       dailyRateCents?: number;
       hourlyCostCents?: number;
@@ -149,6 +151,10 @@ export class UsersService {
       sets.push(`is_admin = $${idx++}`);
       values.push(fields.isAdmin);
     }
+    if (fields.active !== undefined) {
+      sets.push(`active = $${idx++}`);
+      values.push(fields.active);
+    }
     if (fields.rateCents !== undefined) {
       sets.push(`rate_cents = $${idx++}`);
       values.push(fields.rateCents);
@@ -169,7 +175,7 @@ export class UsersService {
 
     const { rows } = await this.pool.query(
       `UPDATE users SET ${sets.join(", ")} WHERE id = $${idx}
-       RETURNING id, email, name, role, is_admin AS "isAdmin",
+       RETURNING id, email, name, role, is_admin AS "isAdmin", active,
                  rate_cents AS "rateCents",
                  daily_rate_cents AS "dailyRateCents",
                  hourly_cost_cents AS "hourlyCostCents",
@@ -184,7 +190,7 @@ export class UsersService {
     const role: UserRole = isAdmin ? "admin" : "employee";
     const { rows } = await this.pool.query(
       `UPDATE users SET is_admin = $2, role = $3, updated_at = NOW() WHERE id = $1
-       RETURNING id, email, name, role, is_admin AS "isAdmin",
+       RETURNING id, email, name, role, is_admin AS "isAdmin", active,
                  rate_cents AS "rateCents",
                  daily_rate_cents AS "dailyRateCents",
                  hourly_cost_cents AS "hourlyCostCents",

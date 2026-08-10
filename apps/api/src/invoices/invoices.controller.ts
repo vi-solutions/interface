@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Query,
@@ -9,7 +10,7 @@ import {
   ParseUUIDPipe,
 } from "@nestjs/common";
 import { InvoicesService } from "./invoices.service";
-import type { CreateInvoiceDto } from "@interface/shared";
+import type { CreateInvoiceDto, UpdateInvoiceDto } from "@interface/shared";
 
 @Controller("invoices")
 export class InvoicesController {
@@ -37,6 +38,14 @@ export class InvoicesController {
   @Post()
   create(@Body() dto: CreateInvoiceDto) {
     return this.invoicesService.create(dto).then((data) => ({ data }));
+  }
+
+  @Patch(":id")
+  update(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInvoiceDto,
+  ) {
+    return this.invoicesService.update(id, dto).then((data) => ({ data }));
   }
 
   @Delete(":id")

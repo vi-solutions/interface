@@ -71,6 +71,13 @@ export interface CreateInvoiceDto {
   lineItems: InvoiceLineItemDto[];
 }
 
+/** Editable invoice fields. Project and billing period remain fixed after creation. */
+export interface UpdateInvoiceDto {
+  notes?: string;
+  dueDate?: string;
+  lineItems: InvoiceLineItemDto[];
+}
+
 /** Preview response — not persisted */
 export interface InvoicePreview {
   projectId: string;

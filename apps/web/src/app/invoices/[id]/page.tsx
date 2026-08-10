@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import type { ApiResponse, InvoiceWithDetails } from "@interface/shared";
+import type {
+  ApiResponse,
+  InvoiceWithDetails,
+  InvoiceLineItemDto,
+} from "@interface/shared";
 import { api } from "@/lib/api";
 import { formatDateString } from "@/lib/dates";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -61,6 +65,11 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmVoid, setConfirmVoid] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editLineItems, setEditLineItems] = useState<InvoiceLineItemDto[]>([]);
+  const [editNotes, setEditNotes] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
 
   useEffect(() => {
     if (!authenticated || !params.id) return;
@@ -85,6 +94,67 @@ export default function InvoiceDetailPage() {
       setError(e instanceof Error ? e.message : "Failed to void invoice");
       setDeleting(false);
       setConfirmVoid(false);
+    }
+  }
+
+  function startEditing() {
+    if (!invoice) return;
+    setEditLineItems(
+      invoice.lineItems.map(({ type, description, quantity, unitCents }) => ({
+        type,
+        description,
+        quantity: Number(quantity),
+        unitCents: Number(unitCents),
+      })),
+    );
+    setEditNotes(invoice.notes ?? "");
+    setEditDueDate(invoice.dueDate?.slice(0, 10) ?? "");
+    setError(null);
+    setEditing(true);
+  }
+
+  function updateEditItem(
+    index: number,
+    field: "description" | "quantity" | "unitCents",
+    value: string,
+  ) {
+    setEditLineItems((items) =>
+      items.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+        if (field === "description") return { ...item, description: value };
+        if (field === "quantity") {
+          return { ...item, quantity: Number.parseFloat(value) || 0 };
+        }
+        return {
+          ...item,
+          unitCents: Math.round((Number.parseFloat(value) || 0) * 100),
+        };
+      }),
+    );
+  }
+
+  async function handleSave() {
+    if (!invoice) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api<ApiResponse<InvoiceWithDetails>>(
+        `/invoices/${invoice.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            notes: editNotes || undefined,
+            dueDate: editDueDate || undefined,
+            lineItems: editLineItems,
+          }),
+        },
+      );
+      setInvoice(res.data);
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update invoice");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -122,6 +192,9 @@ export default function InvoiceDetailPage() {
               </Badge>
               {invoice.status !== "void" && (
                 <>
+                  {!editing && !confirmVoid && (
+                    <Button onClick={startEditing}>Edit Invoice</Button>
+                  )}
                   {confirmVoid ? (
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-red-600 dark:text-red-400">
@@ -142,18 +215,151 @@ export default function InvoiceDetailPage() {
                         Cancel
                       </Button>
                     </div>
-                  ) : (
+                  ) : !editing ? (
                     <Button
                       variant="secondary"
                       onClick={() => setConfirmVoid(true)}
                     >
                       Void Invoice
                     </Button>
-                  )}
+                  ) : null}
                 </>
               )}
             </PageHeader>
 
+            {editing ? (
+              <Card className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="font-semibold">Edit Invoice</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      QuickBooks invoice:{" "}
+                      {invoice.qboInvoiceId
+                        ? `#${invoice.qboInvoiceId}`
+                        : "Not synced"}
+                    </p>
+                  </div>
+                  <span className="font-bold tabular-nums">
+                    {formatMoney(
+                      editLineItems.reduce(
+                        (sum, item) =>
+                          sum + Math.round(item.quantity * item.unitCents),
+                        0,
+                      ),
+                    )}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left pb-2 font-medium text-gray-500">Description</th>
+                        <th className="text-right pb-2 font-medium text-gray-500 w-24">Qty</th>
+                        <th className="text-right pb-2 font-medium text-gray-500 w-28">Rate</th>
+                        <th className="text-right pb-2 font-medium text-gray-500 w-28">Amount</th>
+                        <th className="w-8" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editLineItems.map((item, index) => (
+                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700/50">
+                          <td className="py-2 pr-3">
+                            <input
+                              value={item.description}
+                              onChange={(e) => updateEditItem(index, "description", e.target.value)}
+                              className="w-full bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-emerald-500 focus:outline-none py-1"
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(e) => updateEditItem(index, "quantity", e.target.value)}
+                              className="w-full text-right bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-emerald-500 focus:outline-none py-1"
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={(item.unitCents / 100).toFixed(2)}
+                              onChange={(e) => updateEditItem(index, "unitCents", e.target.value)}
+                              className="w-full text-right bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-emerald-500 focus:outline-none py-1"
+                            />
+                          </td>
+                          <td className="py-2 text-right tabular-nums">
+                            {formatMoney(Math.round(item.quantity * item.unitCents))}
+                          </td>
+                          <td className="py-2 pl-2">
+                            <button
+                              type="button"
+                              aria-label="Remove line item"
+                              onClick={() => setEditLineItems((items) => items.filter((_, i) => i !== index))}
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    setEditLineItems((items) => [
+                      ...items,
+                      { type: "fee", description: "", quantity: 1, unitCents: 0 },
+                    ])
+                  }
+                >
+                  Add Line Item
+                </Button>
+
+                <div className="grid sm:grid-cols-2 gap-4 my-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={editDueDate}
+                      onChange={(e) => setEditDueDate(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+                    <input
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving || editLineItems.length === 0}
+                  >
+                    {saving ? "Saving…" : "Save Changes"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setEditing(false)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+            <>
             {/* Meta row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
               <div>
@@ -177,11 +383,11 @@ export default function InvoiceDetailPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                  QBO
+                  QuickBooks Invoice
                 </p>
                 {invoice.qboInvoiceId ? (
                   <span className="text-sm text-emerald-600 dark:text-emerald-400">
-                    ✓ Synced #{invoice.qboInvoiceId}
+                    #{invoice.qboInvoiceId}
                   </span>
                 ) : (
                   <span className="text-sm text-gray-400">Not synced</span>
@@ -273,6 +479,8 @@ export default function InvoiceDetailPage() {
                 </p>
                 <p className="text-sm">{invoice.notes}</p>
               </Card>
+            )}
+            </>
             )}
           </>
         )}

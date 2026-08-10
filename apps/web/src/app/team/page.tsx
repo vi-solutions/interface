@@ -238,6 +238,9 @@ export default function UsersPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
                   Role
                 </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
+                  Status
+                </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">
                   Rate ($/hr)
                 </th>
@@ -280,6 +283,17 @@ export default function UsersPage() {
                         }`}
                       >
                         {u.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          u.active
+                            ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                        }`}
+                      >
+                        {u.active ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">

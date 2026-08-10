@@ -603,6 +603,49 @@ export class QuickbooksService {
     return result.Invoice.Id;
   }
 
+  async updateInvoice(
+    qboId: string,
+    params: {
+      customerRef: string;
+      txnDate: string;
+      dueDate?: string;
+      lineItems: Array<{
+        description: string;
+        quantity: number;
+        unitCents: number;
+      }>;
+      memo?: string;
+    },
+  ): Promise<void> {
+    const existing = await this.qboGet<{
+      Invoice: { Id: string; SyncToken: string };
+    }>(`/invoice/${qboId}`);
+    const itemRef = await this.getServiceItemRef();
+    const taxCode = await this.getTaxCodeRef();
+
+    await this.qboPost("/invoice", {
+      Id: qboId,
+      SyncToken: existing.Invoice.SyncToken,
+      sparse: true,
+      CustomerRef: { value: params.customerRef },
+      TxnDate: params.txnDate,
+      DueDate: params.dueDate ?? null,
+      CustomerMemo: params.memo ? { value: params.memo } : null,
+      GlobalTaxCalculation: "TaxExcluded",
+      Line: params.lineItems.map((li) => ({
+        Amount: (li.unitCents * li.quantity) / 100,
+        DetailType: "SalesItemLineDetail",
+        Description: li.description,
+        SalesItemLineDetail: {
+          ItemRef: { value: itemRef },
+          Qty: li.quantity,
+          UnitPrice: li.unitCents / 100,
+          TaxCodeRef: { value: taxCode },
+        },
+      })),
+    });
+  }
+
   async deleteInvoice(qboId: string): Promise<void> {
     const existing = await this.qboGet<{
       Invoice: { Id: string; SyncToken: string };
