@@ -85,8 +85,9 @@ export interface CreateUserExpenseDto {
 }
 
 export interface UpdateUserExpenseDto {
+  projectExpenseId?: string;
   date?: string;
-  quantity?: number;
+  quantity?: number | null;
   totalCents?: number;
   notes?: string;
   receiptUrl?: string | null;

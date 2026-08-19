@@ -139,17 +139,18 @@ export class InvoicesService {
       [projectId, periodStart, periodEnd],
     );
 
-    // Billable user expenses
+    // Combine expense entries with the same configured category into one line.
     const { rows: expenseRows } = await this.pool.query(
-      `SELECT ue.total_cents, ue.notes,
-              COALESCE(pe.name, e.name) AS expense_name
+      `SELECT COALESCE(pe.name, e.name) AS expense_name,
+              SUM(ue.total_cents) AS total_cents
        FROM user_expenses ue
        JOIN project_expenses pe ON pe.id = ue.project_expense_id
        LEFT JOIN expenses e ON e.id = pe.expense_id
        WHERE ue.project_id = $1
          AND ue.date >= $2
          AND ue.date <= $3
-       ORDER BY ue.date`,
+       GROUP BY COALESCE(pe.name, e.name)
+       ORDER BY COALESCE(pe.name, e.name)`,
       [projectId, periodStart, periodEnd],
     );
 
@@ -179,12 +180,9 @@ export class InvoicesService {
     }
 
     for (const row of expenseRows) {
-      const desc = row.notes
-        ? `${row.expense_name} — ${row.notes}`
-        : row.expense_name;
       lineItems.push({
         type: "expense",
-        description: desc,
+        description: row.expense_name,
         quantity: 1,
         unitCents: Number(row.total_cents),
       });

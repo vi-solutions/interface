@@ -3,6 +3,7 @@ import {
   Inject,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
 import { Pool } from "pg";
 import { v4 as uuid } from "uuid";
@@ -75,6 +76,7 @@ export class UserExpensesService {
     clientId?: string;
     projectId?: string;
     expenseType?: ExpenseType;
+    expenseName?: string;
     projectExpenseId?: string;
   }): Promise<UserExpenseReportEntry[]> {
     const params: unknown[] = [opts.startDate, opts.endDate];
@@ -95,6 +97,10 @@ export class UserExpensesService {
     if (opts.expenseType) {
       params.push(opts.expenseType);
       conditions.push(`COALESCE(pe.type, e.type) = $${params.length}`);
+    }
+    if (opts.expenseName) {
+      params.push(opts.expenseName);
+      conditions.push(`COALESCE(pe.name, e.name) = $${params.length}`);
     }
     if (opts.projectExpenseId) {
       params.push(opts.projectExpenseId);
@@ -124,6 +130,18 @@ export class UserExpensesService {
       params,
     );
     return rows;
+  }
+
+  async findReportCategories(): Promise<string[]> {
+    const { rows } = await this.pool.query<{ name: string }>(
+      `SELECT DISTINCT COALESCE(pe.name, e.name) AS name
+       FROM user_expenses ue
+       JOIN project_expenses pe ON pe.id = ue.project_expense_id
+       LEFT JOIN expenses e ON e.id = pe.expense_id
+       WHERE COALESCE(pe.name, e.name) IS NOT NULL
+       ORDER BY name`,
+    );
+    return rows.map((row) => row.name);
   }
 
   async findById(id: string): Promise<UserExpense> {
@@ -196,9 +214,39 @@ export class UserExpensesService {
     if (newDate !== existing.date) {
       await this.assertNotLocked(existing.projectId, newDate);
     }
+
+    const projectExpenseId = dto.projectExpenseId ?? existing.projectExpenseId;
+    const { rows: projectExpenseRows } = await this.pool.query<{
+      type: ExpenseType;
+      rateCents: number;
+    }>(
+      `SELECT COALESCE(pe.type, e.type) AS type,
+              COALESCE(pe.rate_cents, e.rate_cents) AS "rateCents"
+       FROM project_expenses pe
+       LEFT JOIN expenses e ON e.id = pe.expense_id
+       WHERE pe.id = $1 AND pe.project_id = $2`,
+      [projectExpenseId, existing.projectId],
+    );
+    const projectExpense = projectExpenseRows[0];
+    if (!projectExpense) {
+      throw new BadRequestException(
+        "The selected expense category is not available on this project.",
+      );
+    }
+
+    let quantity =
+      dto.quantity !== undefined ? dto.quantity : existing.quantity;
+    let totalCents = dto.totalCents ?? existing.totalCents;
+    if (projectExpense.type === "dollar") {
+      quantity = null;
+    } else {
+      quantity = Number(quantity ?? 0);
+      totalCents = Math.round(quantity * Number(projectExpense.rateCents));
+    }
+
     const { rows } = await this.pool.query(
-      `UPDATE user_expenses SET date = $2, quantity = $3, total_cents = $4,
-              notes = $5, updated_at = NOW()
+      `UPDATE user_expenses SET project_expense_id = $2, date = $3,
+              quantity = $4, total_cents = $5, notes = $6, updated_at = NOW()
        WHERE id = $1
        RETURNING id, project_id AS "projectId", user_id AS "userId",
                  project_expense_id AS "projectExpenseId",
@@ -208,9 +256,10 @@ export class UserExpensesService {
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       [
         id,
+        projectExpenseId,
         dto.date ?? existing.date,
-        dto.quantity ?? existing.quantity,
-        dto.totalCents ?? existing.totalCents,
+        quantity,
+        totalCents,
         dto.notes ?? existing.notes,
       ],
     );

@@ -62,6 +62,7 @@ export class UserExpensesController {
     @Query("clientId") clientId: string | undefined,
     @Query("projectId") projectId: string | undefined,
     @Query("expenseType") expenseType: ExpenseType | undefined,
+    @Query("expenseName") expenseName: string | undefined,
     @Query("projectExpenseId") projectExpenseId: string | undefined,
     @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiListResponse<UserExpenseReportEntry>> {
@@ -73,8 +74,18 @@ export class UserExpensesController {
       clientId,
       projectId,
       expenseType,
+      expenseName,
       projectExpenseId,
     });
+    return { data, total: data.length };
+  }
+
+  @Get("report-categories")
+  async reportCategories(
+    @Req() req: Request & { user: { isAdmin: boolean } },
+  ): Promise<ApiListResponse<string>> {
+    if (!req.user.isAdmin) throw new ForbiddenException();
+    const data = await this.userExpensesService.findReportCategories();
     return { data, total: data.length };
   }
 
@@ -112,11 +123,13 @@ export class UserExpensesController {
     @Body() dto: UpdateUserExpenseDto,
     @Req() req: Request & { user: { sub: string; isAdmin: boolean } },
   ): Promise<ApiResponse<UserExpense>> {
+    let effectiveDto = dto;
     if (!req.user.isAdmin) {
       const existing = await this.userExpensesService.findById(id);
       if (existing.userId !== req.user.sub) throw new ForbiddenException();
+      effectiveDto = { ...dto, projectExpenseId: undefined };
     }
-    return { data: await this.userExpensesService.update(id, dto) };
+    return { data: await this.userExpensesService.update(id, effectiveDto) };
   }
 
   @Delete(":id")
@@ -146,8 +159,16 @@ export class UserExpensesController {
       }),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
       fileFilter: (_req, file, cb) => {
-        if (file.mimetype.startsWith("image/")) cb(null, true);
-        else cb(new BadRequestException("Only image files are allowed"), false);
+        if (
+          file.mimetype.startsWith("image/") ||
+          file.mimetype === "application/pdf"
+        )
+          cb(null, true);
+        else
+          cb(
+            new BadRequestException("Only image and PDF files are allowed"),
+            false,
+          );
       },
     }),
   )

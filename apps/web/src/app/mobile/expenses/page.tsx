@@ -443,7 +443,7 @@ export default function MobileExpensesPage() {
                   <span className="flex-1 truncate">
                     {newReceiptFile
                       ? newReceiptFile.name
-                      : "Take photo or choose image"}
+                      : "Take photo or choose PDF"}
                   </span>
                   {newReceiptFile && (
                     <span
@@ -462,8 +462,7 @@ export default function MobileExpensesPage() {
                   <input
                     ref={newReceiptRef}
                     type="file"
-                    accept="image/*"
-                    capture="environment"
+                    accept="image/*,application/pdf,.pdf"
                     className="hidden"
                     onChange={(e) =>
                       setNewReceiptFile(e.target.files?.[0] ?? null)
@@ -588,12 +587,21 @@ export default function MobileExpensesPage() {
                             rel="noopener noreferrer"
                             className="shrink-0"
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={`${API_BASE}${exp.receiptUrl}`}
-                              alt="Receipt"
-                              className="h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
-                            />
+                            {exp.receiptUrl.toLowerCase().endsWith(".pdf") ? (
+                              <span className="flex h-16 w-16 flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-xs font-semibold text-red-600 dark:border-gray-600 dark:bg-gray-700">
+                                <span>PDF</span>
+                                <span className="mt-1 text-[10px] font-medium text-gray-500">
+                                  View
+                                </span>
+                              </span>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`${API_BASE}${exp.receiptUrl}`}
+                                alt="Receipt"
+                                className="h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
+                              />
+                            )}
                           </a>
                           <label className="flex items-center gap-1.5 cursor-pointer rounded-xl border border-gray-300 dark:border-gray-600 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-700">
                             <svg
@@ -608,8 +616,7 @@ export default function MobileExpensesPage() {
                             <input
                               ref={receiptInputRef}
                               type="file"
-                              accept="image/*"
-                              capture="environment"
+                              accept="image/*,application/pdf,.pdf"
                               className="hidden"
                               disabled={receiptUploading}
                               onChange={(e) => handleReceiptCapture(exp.id, e)}
@@ -632,12 +639,11 @@ export default function MobileExpensesPage() {
                           </svg>
                           {receiptUploading
                             ? "Uploading…"
-                            : "Take photo or choose image"}
+                            : "Take photo or choose PDF"}
                           <input
                             ref={receiptInputRef}
                             type="file"
-                            accept="image/*"
-                            capture="environment"
+                            accept="image/*,application/pdf,.pdf"
                             className="hidden"
                             disabled={receiptUploading}
                             onChange={(e) => handleReceiptCapture(exp.id, e)}

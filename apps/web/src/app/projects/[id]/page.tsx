@@ -36,6 +36,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { AppShell } from "@/components/app-shell";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
 function weekStartKey(iso: string) {
   const date = localDateFromDateString(iso);
   const day = date.getDay();
@@ -89,6 +91,7 @@ export default function ProjectDetailPage() {
   const [savingExpense, setSavingExpense] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editExpenseForm, setEditExpenseForm] = useState<{
+    projectExpenseId: string;
     date: string;
     amount: string;
     notes: string;
@@ -607,6 +610,7 @@ export default function ProjectDetailPage() {
         : String(Number(expense.quantity ?? 0));
     setEditingExpenseId(expense.id);
     setEditExpenseForm({
+      projectExpenseId: expense.projectExpenseId,
       date: toDateInputValue(expense.date),
       amount,
       notes: expense.notes ?? "",
@@ -618,20 +622,28 @@ export default function ProjectDetailPage() {
     setSavingExpense(true);
     const value = parseFloat(editExpenseForm.amount);
     const dto: UpdateUserExpenseDto = {
+      projectExpenseId: editExpenseForm.projectExpenseId,
       date: editExpenseForm.date,
       notes: editExpenseForm.notes || undefined,
     };
 
-    if (expense.expenseType === "dollar") {
+    const selectedProjectExpense = projectExpenses.find(
+      (pe) => pe.id === editExpenseForm.projectExpenseId,
+    );
+    if (!selectedProjectExpense) {
+      addToast("Select a valid expense category", "error");
+      setSavingExpense(false);
+      return;
+    }
+
+    if (selectedProjectExpense.type === "dollar") {
       dto.totalCents = Math.round((Number.isFinite(value) ? value : 0) * 100);
+      dto.quantity = null;
     } else {
       const quantity = Number.isFinite(value) ? value : 0;
-      const projectExpense = projectExpenses.find(
-        (pe) => pe.id === expense.projectExpenseId,
-      );
       dto.quantity = quantity;
       dto.totalCents = Math.round(
-        quantity * Number(projectExpense?.rateCents ?? 0),
+        quantity * Number(selectedProjectExpense.rateCents),
       );
     }
 
@@ -650,6 +662,31 @@ export default function ProjectDetailPage() {
     } catch (err) {
       addToast(
         err instanceof Error ? err.message : "Failed to update expense",
+        "error",
+      );
+    } finally {
+      setSavingExpense(false);
+    }
+  }
+
+  async function handleExpenseAttachment(
+    expenseId: string,
+    file: File | undefined,
+  ) {
+    if (!file) return;
+    setSavingExpense(true);
+    try {
+      const attachment = new FormData();
+      attachment.append("file", file);
+      await apiUpload<ApiResponse<{ receiptUrl: string }>>(
+        `/user-expenses/${expenseId}/receipt`,
+        attachment,
+      );
+      addToast("Expense attachment saved");
+      loadUserExpenses();
+    } catch (err) {
+      addToast(
+        err instanceof Error ? err.message : "Failed to upload attachment",
         "error",
       );
     } finally {
@@ -1645,10 +1682,28 @@ export default function ProjectDetailPage() {
                       notes: (form.get("notes") as string) || undefined,
                     };
                     try {
-                      await api<ApiResponse<UserExpenseWithDetails>>(
+                      const created = await api<
+                        ApiResponse<UserExpenseWithDetails>
+                      >(
                         "/user-expenses",
                         { method: "POST", body: JSON.stringify(dto) },
                       );
+                      const attachment = form.get("attachment");
+                      if (attachment instanceof File && attachment.size > 0) {
+                        try {
+                          const upload = new FormData();
+                          upload.append("file", attachment);
+                          await apiUpload(
+                            `/user-expenses/${created.data.id}/receipt`,
+                            upload,
+                          );
+                        } catch {
+                          addToast(
+                            "Expense logged, but the attachment upload failed",
+                            "error",
+                          );
+                        }
+                      }
                       addToast("Expense logged");
                       setShowExpenseForm(false);
                       loadUserExpenses();
@@ -1756,6 +1811,21 @@ export default function ProjectDetailPage() {
                   </div>
 
                   <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium mb-1">
+                      Receipt or attachment
+                    </label>
+                    <input
+                      name="attachment"
+                      type="file"
+                      accept="image/*,application/pdf,.pdf"
+                      className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium dark:file:bg-gray-700 dark:file:text-gray-200"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Photo or PDF, up to 10 MB.
+                    </p>
+                  </div>
+
+                  <div className="sm:col-span-2">
                     <button
                       type="submit"
                       disabled={savingExpense}
@@ -1802,6 +1872,11 @@ export default function ProjectDetailPage() {
                         const canManage =
                           currentUser?.isAdmin || currentUser?.id === ue.userId;
                         const isEditing = editingExpenseId === ue.id;
+                        const selectedEditExpense = isEditing
+                          ? projectExpenses.find(
+                              (pe) => pe.id === editExpenseForm?.projectExpenseId,
+                            )
+                          : undefined;
                         return isEditing && editExpenseForm ? (
                           <tr
                             key={ue.id}
@@ -1820,7 +1895,53 @@ export default function ProjectDetailPage() {
                               />
                             </td>
                             <td className="px-4 py-2.5 font-medium">
-                              {ue.expenseName}
+                              {currentUser?.isAdmin ? (
+                                <select
+                                  value={editExpenseForm.projectExpenseId}
+                                  onChange={(e) => {
+                                    const next = projectExpenses.find(
+                                      (pe) => pe.id === e.target.value,
+                                    );
+                                    setEditExpenseForm((form) => {
+                                      if (!form || !next) return form;
+                                      const previous = projectExpenses.find(
+                                        (pe) => pe.id === form.projectExpenseId,
+                                      );
+                                      let amount = form.amount;
+                                      if (
+                                        previous?.type === "dollar" &&
+                                        next.type !== "dollar"
+                                      ) {
+                                        amount = String(Number(ue.quantity ?? 1));
+                                      } else if (
+                                        previous?.type !== "dollar" &&
+                                        next.type === "dollar"
+                                      ) {
+                                        amount = (
+                                          Number(ue.totalCents) / 100
+                                        ).toFixed(2);
+                                      }
+                                      return {
+                                        ...form,
+                                        projectExpenseId: next.id,
+                                        amount,
+                                      };
+                                    });
+                                  }}
+                                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                >
+                                  {projectExpenses.map((projectExpense) => (
+                                    <option
+                                      key={projectExpense.id}
+                                      value={projectExpense.id}
+                                    >
+                                      {projectExpense.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                ue.expenseName
+                              )}
                               <input
                                 type="text"
                                 value={editExpenseForm.notes}
@@ -1832,6 +1953,38 @@ export default function ProjectDetailPage() {
                                 placeholder="Notes"
                                 className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                               />
+                              <div className="mt-1 flex items-center gap-2 text-xs">
+                                {ue.receiptUrl && (
+                                  <a
+                                    href={`${API_BASE}${ue.receiptUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-600 hover:underline"
+                                  >
+                                    {ue.receiptUrl
+                                      .toLowerCase()
+                                      .endsWith(".pdf")
+                                      ? "View PDF"
+                                      : "View attachment"}
+                                  </a>
+                                )}
+                                <label className="cursor-pointer text-emerald-600 hover:underline">
+                                  {ue.receiptUrl ? "Replace" : "Attach photo/PDF"}
+                                  <input
+                                    type="file"
+                                    accept="image/*,application/pdf,.pdf"
+                                    className="hidden"
+                                    disabled={savingExpense}
+                                    onChange={(e) => {
+                                      void handleExpenseAttachment(
+                                        ue.id,
+                                        e.target.files?.[0],
+                                      );
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">
                               {ue.user.name}
@@ -1851,14 +2004,10 @@ export default function ProjectDetailPage() {
                               />
                             </td>
                             <td className="px-4 py-2.5 text-right tabular-nums font-medium">
-                              {(ue.expenseType === "dollar"
+                              {(selectedEditExpense?.type === "dollar"
                                 ? Number(editExpenseForm.amount || "0")
                                 : (Number(editExpenseForm.amount || "0") *
-                                    Number(
-                                      projectExpenses.find(
-                                        (pe) => pe.id === ue.projectExpenseId,
-                                      )?.rateCents ?? 0,
-                                    )) /
+                                    Number(selectedEditExpense?.rateCents ?? 0)) /
                                   100
                               ).toFixed(2)}
                             </td>
@@ -1897,6 +2046,18 @@ export default function ProjectDetailPage() {
                                 <span className="block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
                                   {ue.notes}
                                 </span>
+                              )}
+                              {ue.receiptUrl && (
+                                <a
+                                  href={`${API_BASE}${ue.receiptUrl}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                                >
+                                  {ue.receiptUrl.toLowerCase().endsWith(".pdf")
+                                    ? "View PDF"
+                                    : "View attachment"}
+                                </a>
                               )}
                             </td>
                             <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">

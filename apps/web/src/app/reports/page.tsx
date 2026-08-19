@@ -757,6 +757,8 @@ export default function ReportsPage() {
   const [expenseClientId, setExpenseClientId] = useState("");
   const [expenseProjectId, setExpenseProjectId] = useState("");
   const [expenseType, setExpenseType] = useState<ExpenseType | "">("");
+  const [expenseName, setExpenseName] = useState("");
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -782,6 +784,7 @@ export default function ReportsPage() {
     clientId: string;
     projectId: string;
     expenseType: ExpenseType | "";
+    expenseName: string;
   } | null>(null);
 
   useEffect(() => {
@@ -790,10 +793,12 @@ export default function ReportsPage() {
       api<ApiListResponse<User>>("/users"),
       api<ApiListResponse<Client>>("/clients"),
       api<ApiListResponse<ProjectWithClient>>("/projects"),
-    ]).then(([usersRes, clientsRes, projectsRes]) => {
+      api<ApiListResponse<string>>("/user-expenses/report-categories"),
+    ]).then(([usersRes, clientsRes, projectsRes, categoriesRes]) => {
       setUsers(usersRes.data);
       setClients(clientsRes.data);
       setProjects(projectsRes.data);
+      setExpenseCategories(categoriesRes.data);
       if (usersRes.data[0]) setSelectedUserId(usersRes.data[0].id);
       if (clientsRes.data[0]) setSelectedClientId(clientsRes.data[0].id);
       if (projectsRes.data[0]) setSelectedProjectId(projectsRes.data[0].id);
@@ -814,6 +819,7 @@ export default function ReportsPage() {
         if (expenseClientId) params.set("clientId", expenseClientId);
         if (expenseProjectId) params.set("projectId", expenseProjectId);
         if (expenseType) params.set("expenseType", expenseType);
+        if (expenseName) params.set("expenseName", expenseName);
         const res = await api<ApiListResponse<UserExpenseReportEntry>>(
           `/user-expenses/report?${params}`,
         );
@@ -825,6 +831,7 @@ export default function ReportsPage() {
           clientId: expenseClientId,
           projectId: expenseProjectId,
           expenseType,
+          expenseName,
         });
         return;
       }
@@ -877,7 +884,10 @@ export default function ReportsPage() {
     expenseReportClient ? `Client: ${expenseReportClient.name}` : null,
     expenseReportProject ? `Project: ${expenseReportProject.name}` : null,
     expenseReportParams?.expenseType
-      ? `Type: ${expenseTypeLabel(expenseReportParams.expenseType)}`
+      ? `Calculation type: ${expenseTypeLabel(expenseReportParams.expenseType)}`
+      : null,
+    expenseReportParams?.expenseName
+      ? `Category: ${expenseReportParams.expenseName}`
       : null,
   ].filter((label): label is string => Boolean(label));
 
@@ -1049,7 +1059,24 @@ export default function ReportsPage() {
               <>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                    Type
+                    Expense category
+                  </label>
+                  <select
+                    value={expenseName}
+                    onChange={(e) => setExpenseName(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">All categories</option>
+                    {expenseCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Calculation type
                   </label>
                   <select
                     value={expenseType}
